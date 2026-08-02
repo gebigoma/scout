@@ -119,6 +119,26 @@ def fetch_hn_hiring() -> list[dict]:
     return listings
 
 
+def load_seen_urls(seen_path: Path) -> set[str]:
+    if not seen_path.exists():
+        return set()
+    return set(json.loads(seen_path.read_text()).get("matched_urls", []))
+
+
+def dedupe(listings: list[dict], seen_urls: set[str]) -> list[dict]:
+    """Drop listings with no URL, duplicate URLs within this run, or URLs
+    already surfaced as a match in a previous week (per data/seen.json)."""
+    result = []
+    seen_this_run = set()
+    for listing in listings:
+        url = listing.get("url", "")
+        if not url or url in seen_this_run or url in seen_urls:
+            continue
+        seen_this_run.add(url)
+        result.append(listing)
+    return result
+
+
 def main():
     print("Fetching RemoteOK...")
     remoteok = fetch_remoteok()
@@ -132,9 +152,15 @@ def main():
     hn = fetch_hn_hiring()
     print(f"  {len(hn)} listings")
 
-    all_listings = remoteok + wwr + hn
+    project_dir = Path(__file__).resolve().parent.parent
+    seen_urls = load_seen_urls(project_dir / "data" / "seen.json")
 
-    out_dir = Path(__file__).resolve().parent.parent / "data" / "raw"
+    raw_count = len(remoteok) + len(wwr) + len(hn)
+    all_listings = dedupe(remoteok + wwr + hn, seen_urls)
+    print(f"\nDeduped {raw_count} raw listings -> {len(all_listings)} "
+          f"(dropped duplicates + {len(seen_urls)} previously-matched URLs)")
+
+    out_dir = project_dir / "data" / "raw"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{date.today().isoformat()}.json"
     out_path.write_text(json.dumps({
@@ -143,7 +169,7 @@ def main():
         "listings": all_listings,
     }, indent=2))
 
-    print(f"\nWrote {len(all_listings)} raw listings to {out_path}")
+    print(f"Wrote {len(all_listings)} raw listings to {out_path}")
 
 
 if __name__ == "__main__":
