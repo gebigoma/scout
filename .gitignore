@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .DS_Store
 data/raw/
+data/runs/
 Claude.dmg
 logs/
 .claude/settings.local.json
