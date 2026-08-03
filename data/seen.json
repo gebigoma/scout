@@ -1,10 +1,9 @@
 {
-  "matched_urls": [
-    "https://news.ycombinator.com/item?id=48757307",
-    "https://news.ycombinator.com/item?id=48833943",
-    "https://news.ycombinator.com/item?id=48900749",
-    "https://news.ycombinator.com/item?id=49156702",
-    "https://remoteOK.com/remote-jobs/remote-genai-engineer-ai-builder-ai-agent-associate-specialist-magic-compass-limited-1135735",
-    "https://weworkremotely.com/remote-jobs/a-team-senior-independent-ai-engineer-architect"
-  ]
+  "seen": {
+    "https://news.ycombinator.com/item?id=48757307": "2026-08-01",
+    "https://news.ycombinator.com/item?id=48833943": "2026-08-01",
+    "https://news.ycombinator.com/item?id=48900749": "2026-08-01",
+    "https://news.ycombinator.com/item?id=49156702": "2026-08-03",
+    "https://weworkremotely.com/remote-jobs/a-team-senior-independent-ai-engineer-architect": "2026-08-01"
+  }
 }
