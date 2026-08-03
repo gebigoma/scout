@@ -57,7 +57,11 @@ failure, a push notification goes out via ntfy.sh (topic set via the
 `NTFY_TOPIC` env var in the launchd job, not in this repo).
 
 A local `launchd` job (`~/Library/LaunchAgents/com.scout.weeklyfetch.plist`)
-runs the pipeline every Monday morning on this machine.
+runs the pipeline every Monday morning on this machine. Fetching is part of
+that weekly run, which costs recall on the two sources that are rolling
+windows rather than archives — see
+[`docs/daily-ingest-split.md`](./docs/daily-ingest-split.md) for the
+proposed daily-ingest/weekly-digest split.
 
 ## Running it manually
 
