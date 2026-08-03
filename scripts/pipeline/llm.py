@@ -2,6 +2,12 @@
 import shutil
 import os
 
+# Pinned deliberately. Without it these calls inherit whatever interactive
+# default the user last set via /model, so changing your editor preference
+# would silently change what every scheduled run costs. Override for a one-off
+# with SCOUT_MODEL=opus.
+MODEL = os.environ.get("SCOUT_MODEL", "sonnet")
+
 
 def claude_bin() -> str:
     """Resolve the Claude Code CLI. Checked in this order so the pipeline

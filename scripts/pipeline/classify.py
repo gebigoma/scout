@@ -48,7 +48,8 @@ def _build_prompt(listings: list) -> str:
 
 def _call_claude(prompt: str) -> dict:
     proc = subprocess.run(
-        [llm.claude_bin(), "-p", "--tools", "", "--json-schema", json.dumps(SCHEMA)],
+        [llm.claude_bin(), "-p", "--model", llm.MODEL,
+         "--tools", "", "--json-schema", json.dumps(SCHEMA)],
         input=prompt, text=True, capture_output=True, timeout=600,
     )
     if proc.returncode != 0:
