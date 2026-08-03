@@ -1,0 +1,36 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A weekly digest push and a quick follow-up commit shouldn't queue two runs.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.9 is the macOS system Python the launchd job actually runs on, so
+        # it's the floor; the newer versions catch anything that only works
+        # there.
+        python-version: ["3.9", "3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # No install step: the pipeline and its tests are stdlib-only, which is
+      # deliberate - the scheduled job has to run on a laptop with no venv to
+      # activate and nothing to keep up to date.
+      - name: Run tests
+        run: python -m unittest discover -s tests -t . -v

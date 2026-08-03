@@ -11,6 +11,12 @@ def _strip_html(text: str) -> str:
     return html.unescape(re.sub("<[^<]+?>", " ", text or ""))
 
 
+def _one_line(text: str) -> str:
+    """Collapse whitespace. Titles and companies are rendered into markdown
+    list items, where an embedded newline silently breaks the entry."""
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
 # The criteria require a listing to *explicitly state* fractional terms, so
 # these are the exact words the classifier needs to see to say yes.
 EMPLOYMENT_TERMS = re.compile(
@@ -79,18 +85,63 @@ def _normalize_wwr(items: list) -> list:
     return result
 
 
+# Words that mean a header field is naming a job, not describing the terms.
+ROLE_WORDS = re.compile(
+    r"engineer|developer|programmer|designer|scientist|architect|analyst|"
+    r"researcher|manager|management|director|founding|head of|lead\b|leader|"
+    r"devops|sre\b|tpm\b|\bpm\b|cto\b|cpo\b|vp\b|specialist|consultant|"
+    r"roles?\b|position|hiring|intern\b",
+    re.IGNORECASE,
+)
+
+# Fields that demonstrably are *not* a role: locations, employment terms,
+# money, links, YC batches.
+METADATA_FIELD = re.compile(
+    r"(remote|onsite|on-site|hybrid|anywhere|worldwide)\b|"
+    r"(full|part)[\s-]?time\b|(contract|freelance|permanent|intern)\b|"
+    r"\$|[\d,.]+\s*k?\s*[-–]|yc[\s(]|[swfx]\d{2}\b",
+    re.IGNORECASE,
+)
+
+URL_FIELD = re.compile(r"(https?://|www\.)", re.IGNORECASE)
+
+
+def _pick_hn_role(fields: list) -> str:
+    """Choose the header field that names the role.
+
+    The "Company | Role | Location | Type" convention is not one people
+    actually follow. A single thread mixes in "Company | Location | Type",
+    "Company | Salary | Location | Roles", and headers whose second field is
+    a bare URL or a YC batch - so taking fields[1] published "REMOTE
+    (worldwide)", "150-250k+ + equity" and "YC 19" as job titles."""
+    candidates = [f for f in fields[1:] if f]
+    for field in candidates:  # a field that names a role
+        if ROLE_WORDS.search(field) and not URL_FIELD.match(field):
+            return field[:100]
+    for field in candidates:  # failing that, one that isn't terms/location/link
+        if not METADATA_FIELD.match(field) and not URL_FIELD.match(field):
+            return field[:100]
+    # The header genuinely carries no role (the roles are listed in the body,
+    # which the classifier reads via the snippet). Show the terms rather than
+    # promoting a location to a job title.
+    return " | ".join(candidates)[:100]
+
+
 def _normalize_hn(items: list) -> list:
     result = []
     for item in items:
-        clean = _strip_html(item.get("text", ""))
+        raw = item.get("text", "")
+        clean = _strip_html(raw)
         thread_title = item.get("thread_title", "")
-        # "Who is hiring" comments follow a "Company | Role | Location | Type"
-        # convention. Splitting on "\n" instead treated the whole comment as
-        # the title and chopped it mid-word, which is what produced the
-        # mangled headings in earlier digests.
-        fields = [f.strip() for f in clean.split("|")]
-        company = fields[0][:80] if fields else ""
-        role = fields[1][:100] if len(fields) > 1 else clean[:100]
+        # The pipe-delimited header is the comment's first paragraph. Strip
+        # HTML first and it runs straight into the body - <p> becomes a space
+        # - which is what glued "Contract We build authority infrastructure
+        # for people whose " into one heading.
+        header = _strip_html(re.split(r"<p>|\n", raw, maxsplit=1)[0]).strip()
+        fields = [f.strip() for f in header.split("|")] if header else []
+        company = _one_line(fields[0])[:80] if fields else ""
+        role = _one_line(
+            _pick_hn_role(fields) if len(fields) > 1 else clean[:100])
         result.append({
             "source": f"hn:{thread_title}",
             "title": role,

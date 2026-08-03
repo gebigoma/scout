@@ -76,6 +76,9 @@ def _update_seen(run_date: str, scored: list) -> None:
         seen = data.get("seen") or {url: "" for url in data.get("matched_urls", [])}
     for m in scored:
         seen.setdefault(m["listing"]["url"], run_date)
+    # data/ exists in practice only because fetch's run dir created it; don't
+    # make publishing depend on that side effect.
+    path.parent.mkdir(parents=True, exist_ok=True)
     paths.atomic_write_json(path, {"seen": dict(sorted(seen.items()))})
 
 
