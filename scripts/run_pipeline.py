@@ -68,7 +68,8 @@ def main():
 
     # Run lifecycle belongs to the orchestrator, not to digest - otherwise a
     # run whose digest came from cache would never get marked complete.
-    manifest.run_succeeded(run_date)
+    final = manifest.run_succeeded(run_date)
+    alert.send_success_heartbeat(run_date, final)
     print(f"Pipeline succeeded: {digest_cp['matches']} matches, "
           f"committed={digest_cp['committed']}, pushed={digest_cp['pushed']}")
 
