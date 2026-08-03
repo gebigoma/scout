@@ -1,22 +1,36 @@
 """Dedupe stage: drop listings with no URL, duplicate URLs within this run,
-or URLs already surfaced as a match in a previous week (data/seen.json)."""
+or URLs already surfaced as a match on an EARLIER date (data/seen.json).
+
+seen.json maps url -> the run date it was first surfaced on, rather than
+being a flat list. That date matters: digest (the last stage) writes this
+file and dedupe (the third stage) reads it, so re-running a completed date
+with --force would otherwise make dedupe drop that date's own matches as
+"already seen", yielding an empty digest that overwrites the real one and
+still reports success. Excluding only URLs first seen on a *different* date
+makes re-runs idempotent."""
 import json
 
 from . import logging_setup, manifest, paths
 
 
-def load_seen_urls() -> set[str]:
-    path = paths.seen_path()
+def load_seen(path=None) -> dict:
+    """Return {url: first_seen_date}. Tolerates the legacy flat-list format
+    by treating those URLs as seen on an unknown earlier date."""
+    path = path or paths.seen_path()
     if not path.exists():
-        return set()
-    return set(json.loads(path.read_text()).get("matched_urls", []))
+        return {}
+    data = json.loads(path.read_text())
+    if "seen" in data:
+        return data["seen"]
+    return {url: "" for url in data.get("matched_urls", [])}
 
 
 def run(run_date: str, normalize_checkpoint: dict) -> dict:
     logger = logging_setup.get_logger(run_date)
     manifest.stage_started(run_date, "dedupe")
 
-    seen_urls = load_seen_urls()
+    seen = load_seen()
+    seen_urls = {url for url, first_seen in seen.items() if first_seen != run_date}
     listings = normalize_checkpoint["listings"]
 
     result = []
@@ -39,7 +53,7 @@ def run(run_date: str, normalize_checkpoint: dict) -> dict:
         result.append(listing)
 
     checkpoint = {"listings": result}
-    paths.checkpoint_path(run_date, "dedupe").write_text(json.dumps(checkpoint, indent=2))
+    paths.atomic_write_json(paths.checkpoint_path(run_date, "dedupe"), checkpoint)
 
     logging_setup.log(
         logger, "dedupe", "deduped listings",

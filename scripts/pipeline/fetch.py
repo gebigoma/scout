@@ -2,11 +2,19 @@
 source. A single source failing doesn't fail the whole stage - it's
 recorded as a partial failure and the other sources still proceed."""
 import json
+import socket
 import urllib.request
 import xml.etree.ElementTree as ET
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 from . import logging_setup, manifest, paths, retry
+
+# Only genuine "the source is unavailable/misbehaving" failures are tolerated
+# as a per-source outage. A TypeError or KeyError means our own parsing code
+# is broken, and should crash the run loudly rather than being silently
+# recorded as "that source was down".
+FETCH_ERRORS = (URLError, HTTPError, socket.timeout, TimeoutError,
+                ET.ParseError, json.JSONDecodeError)
 
 USER_AGENT = "scout-fractional-role-finder/1.0 (personal job search tool)"
 
@@ -104,7 +112,7 @@ def run(run_date: str) -> dict:
             }
             logging_setup.log(logger, "fetch", f"{name} fetch succeeded",
                                source=name, attempts=attempts_made, count=len(items))
-        except (URLError, Exception) as e:
+        except FETCH_ERRORS as e:
             sources_result[name] = {
                 "status": "failed",
                 "attempts": attempts_made,
@@ -126,7 +134,7 @@ def run(run_date: str) -> dict:
         raise RuntimeError("fetch stage: all sources failed")
 
     checkpoint = {"sources": sources_result}
-    paths.checkpoint_path(run_date, "fetch").write_text(json.dumps(checkpoint, indent=2))
+    paths.atomic_write_json(paths.checkpoint_path(run_date, "fetch"), checkpoint)
 
     manifest.stage_succeeded(
         run_date, "fetch",

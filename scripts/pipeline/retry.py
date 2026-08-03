@@ -20,9 +20,9 @@ def with_backoff(
             return fn()
         except Exception as e:
             last_exc = e
-            if on_retry:
-                on_retry(attempt, e)
             if attempt < attempts:
+                if on_retry:  # only log "retrying" when we actually will
+                    on_retry(attempt, e)
                 delay = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
                 time.sleep(delay)
     assert last_exc is not None

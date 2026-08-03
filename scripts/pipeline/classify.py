@@ -5,9 +5,7 @@ than string-matching. Only matches are returned (keeps output small)."""
 import json
 import subprocess
 
-from . import logging_setup, manifest, paths, retry
-
-CLAUDE_BIN = "/Users/tinapark2/.local/bin/claude"
+from . import llm, logging_setup, manifest, paths, retry
 
 SCHEMA = {
     "type": "object",
@@ -32,12 +30,17 @@ SCHEMA = {
 }
 
 
-def _build_prompt(listings: list[dict]) -> str:
+def _build_prompt(listings: list) -> str:
     template = (paths.prompts_dir() / "classify_prompt.md").read_text()
     role_criteria = paths.role_criteria_path().read_text()
+    # tags carries the single most structured employment-type signal we get
+    # (RemoteOK marks "contract"/"part time" there), and posted_date lets the
+    # model discount stale postings - both were previously normalized and
+    # then dropped before ever reaching the model.
     listings_json = json.dumps(
         [{"url": l["url"], "title": l["title"], "company": l.get("company", ""),
-          "source": l["source"], "snippet": l["snippet"]} for l in listings],
+          "source": l["source"], "posted_date": l.get("posted_date", ""),
+          "tags": l.get("tags", []), "snippet": l["snippet"]} for l in listings],
         indent=2,
     )
     return template.format(role_criteria=role_criteria, listings_json=listings_json)
@@ -45,7 +48,7 @@ def _build_prompt(listings: list[dict]) -> str:
 
 def _call_claude(prompt: str) -> dict:
     proc = subprocess.run(
-        [CLAUDE_BIN, "-p", "--tools", "", "--json-schema", json.dumps(SCHEMA)],
+        [llm.claude_bin(), "-p", "--tools", "", "--json-schema", json.dumps(SCHEMA)],
         input=prompt, text=True, capture_output=True, timeout=600,
     )
     if proc.returncode != 0:
@@ -88,7 +91,7 @@ def run(run_date: str, dedupe_checkpoint: dict) -> dict:
         matches.append({**m, "listing": listing})
 
     checkpoint = {"matches": matches}
-    paths.checkpoint_path(run_date, "classify").write_text(json.dumps(checkpoint, indent=2))
+    paths.atomic_write_json(paths.checkpoint_path(run_date, "classify"), checkpoint)
 
     logging_setup.log(logger, "classify", "classified listings",
                        candidates=len(listings), matches=len(matches),

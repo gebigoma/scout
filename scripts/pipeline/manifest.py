@@ -24,7 +24,7 @@ def load(run_date: str) -> dict:
 
 
 def save(run_date: str, manifest: dict) -> None:
-    paths.manifest_path(run_date).write_text(json.dumps(manifest, indent=2))
+    paths.atomic_write_json(paths.manifest_path(run_date), manifest)
 
 
 def stage_started(run_date: str, stage: str) -> dict:
@@ -69,6 +69,9 @@ def stage_failed(run_date: str, stage: str, error: str, **details) -> dict:
 def run_succeeded(run_date: str) -> dict:
     m = load(run_date)
     m["status"] = "success"
+    # Clear any error left over from an earlier failed attempt at this date,
+    # otherwise a resumed run reads as status=success alongside a stale error.
+    m["error"] = None
     m["finished_at"] = datetime.now(timezone.utc).isoformat()
     save(run_date, m)
     return m

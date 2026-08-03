@@ -3,9 +3,7 @@
 import json
 import subprocess
 
-from . import logging_setup, manifest, paths, retry
-
-CLAUDE_BIN = "/Users/tinapark2/.local/bin/claude"
+from . import llm, logging_setup, manifest, paths, retry
 
 SCHEMA = {
     "type": "object",
@@ -42,7 +40,7 @@ def _build_prompt(matches: list[dict]) -> str:
 
 def _call_claude(prompt: str) -> dict:
     proc = subprocess.run(
-        [CLAUDE_BIN, "-p", "--tools", "", "--json-schema", json.dumps(SCHEMA)],
+        [llm.claude_bin(), "-p", "--tools", "", "--json-schema", json.dumps(SCHEMA)],
         input=prompt, text=True, capture_output=True, timeout=300,
     )
     if proc.returncode != 0:
@@ -58,7 +56,7 @@ def run(run_date: str, classify_checkpoint: dict) -> dict:
 
     if not matches:
         checkpoint = {"scored": []}
-        paths.checkpoint_path(run_date, "score").write_text(json.dumps(checkpoint, indent=2))
+        paths.atomic_write_json(paths.checkpoint_path(run_date, "score"), checkpoint)
         logging_setup.log(logger, "score", "no matches to score")
         manifest.stage_succeeded(run_date, "score", count=0)
         return checkpoint
@@ -92,7 +90,7 @@ def run(run_date: str, classify_checkpoint: dict) -> dict:
         scored.append({**m, "fit_score": s["fit_score"], "rationale": s["rationale"]})
 
     checkpoint = {"scored": scored}
-    paths.checkpoint_path(run_date, "score").write_text(json.dumps(checkpoint, indent=2))
+    paths.atomic_write_json(paths.checkpoint_path(run_date, "score"), checkpoint)
 
     logging_setup.log(logger, "score", "scored matches",
                        count=len(scored), unresolved_urls=unresolved, attempts=attempts_made)

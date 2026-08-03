@@ -13,14 +13,22 @@ import json
 import sys
 from datetime import date
 
-from pipeline import alert, classify, dedupe, digest, fetch, normalize, paths, score
+from pipeline import (alert, classify, dedupe, digest, fetch, manifest,
+                      normalize, paths, score)
 
 
 def load_checkpoint(run_date: str, stage: str):
     path = paths.checkpoint_path(run_date, stage)
-    if path.exists():
+    if not path.exists():
+        return None
+    try:
         return json.loads(path.read_text())
-    return None
+    except (json.JSONDecodeError, OSError) as e:
+        # A corrupt checkpoint should cost us one stage, not wedge the date
+        # permanently. Treat it as missing and re-run the stage.
+        print(f"[{stage}] checkpoint unreadable ({e}); re-running stage",
+              file=sys.stderr)
+        return None
 
 
 def main():
@@ -30,7 +38,12 @@ def main():
     parser.add_argument("--force", action="store_true",
                          help="ignore existing checkpoints, redo every stage")
     args = parser.parse_args()
-    run_date = args.date
+    try:
+        # Guards against a typo like 2026-8-3 silently creating an
+        # inconsistently-named run dir and digest file.
+        run_date = date.fromisoformat(args.date).isoformat()
+    except ValueError:
+        parser.error(f"--date must be YYYY-MM-DD, got {args.date!r}")
 
     def stage_output(stage_name, run_fn, *inputs):
         if not args.force:
@@ -53,8 +66,11 @@ def main():
         alert.send_failure_alert(run_date, str(e))
         sys.exit(1)
 
+    # Run lifecycle belongs to the orchestrator, not to digest - otherwise a
+    # run whose digest came from cache would never get marked complete.
+    manifest.run_succeeded(run_date)
     print(f"Pipeline succeeded: {digest_cp['matches']} matches, "
-          f"committed={digest_cp['committed']}")
+          f"committed={digest_cp['committed']}, pushed={digest_cp['pushed']}")
 
 
 if __name__ == "__main__":
