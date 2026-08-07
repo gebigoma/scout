@@ -176,12 +176,16 @@ response shapes. Minimum coverage:
 
 ## Sequencing note
 
-This lane makes the chunked-classify work
-([`daily-ingest-split.md`](./daily-ingest-split.md) → Sequencing note) more
-urgent, not less: a few hundred companies' worth of postings is a much larger
-candidate pool than three job boards. The prefilter is what keeps this
-tractable in the interim — if it turns out to be too permissive, chunk classify
-before loosening anything else.
+**Land [`chunked-classify.md`](./chunked-classify.md) first.** That change
+rewrites classify's schema and reconciliation (integer ids, a verdict per
+listing), so building this lane on the current contract means reworking it
+immediately afterward. It also keeps two independent sets of failures from
+being conflated during debugging.
+
+This lane is what makes chunking urgent rather than optional: a few hundred
+companies' worth of postings is a much larger candidate pool than three job
+boards. The prefilter keeps it tractable — if the prefilter turns out too
+permissive, tighten it or improve chunking before loosening the criteria.
 
 ## Non-goals
 
