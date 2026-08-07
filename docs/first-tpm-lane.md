@@ -74,23 +74,32 @@ add a browser dependency to `scripts/pipeline/`.
 
 ### 1. Company list
 
-`data/companies.yaml` (hand-maintained), one entry per company:
+`data/companies.csv` (hand-maintained), one row per company:
 
-```yaml
-- name: Example Corp
-  ats: greenhouse          # greenhouse | ashby | lever
-  token: examplecorp       # the board token, not the company name
-  headcount: 85            # optional; omit when unknown, never guess
-  source: lightspeed       # which portfolio it came from
+```csv
+name,ats,token,headcount,source
+Example Corp,greenhouse,examplecorp,85,lightspeed
+Another Inc,ashby,anotherinc,,bessemer
 ```
+
+- `ats` — `greenhouse` | `ashby` | `lever`
+- `token` — the **board token**, not the company name
+- `headcount` — optional; leave empty when unknown, never guess
+- `source` — which portfolio it came from
+
+**CSV, not YAML or JSON.** The repo is stdlib-only and `yaml` is not in the
+standard library. CSV wins over JSON here for a hand-maintained list of a few
+hundred flat rows: `csv` is stdlib, the file opens in a spreadsheet for bulk
+editing, and it has none of JSON's hand-editing hazards (trailing commas,
+quoting every key, one malformed brace breaking the whole file). The schema is
+flat with no nesting, so JSON's structure buys nothing.
+
+Empty `headcount` must parse as "unknown", not `0` — a `0` would score as
+badly out-of-band rather than as missing data. Worth a test.
 
 Seed it by hand from the infra/dev-tools-heavy portfolios first — Lightspeed,
 Bessemer, Accel, Index. Board tokens do not map 1:1 to company names and have
 to be found per company (usually visible in the company's careers-page URL).
-
-Parsing: the repo is stdlib-only and **`yaml` is not in the standard library**.
-Either use JSON instead, or write a minimal parser for this flat schema. JSON
-is the lower-risk call — decide before starting.
 
 ### 2. Fetch stage
 
