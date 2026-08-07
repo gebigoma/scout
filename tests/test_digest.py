@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest import mock
 
-from pipeline import digest, manifest, paths
+from pipeline import digest, lanes, manifest, paths
 
 from . import fixtures
 from .support import RUN_DATE, PipelineTestCase, git, init_repo_with_remote
@@ -14,7 +14,7 @@ class RenderMarkdownTest(unittest.TestCase):
             fixtures.scored("u1", 90, "senior_tpm", title="Fractional TPM"),
             fixtures.scored("u2", 80, "agentic_ai_engineer", title="AI Agent Engineer"),
         ], [])
-        tpm_section = md.split("## Agentic AI Engineer")[0]
+        tpm_section = md.split("### Agentic AI Engineer")[0]
         self.assertIn("Fractional TPM", tpm_section)
         self.assertNotIn("AI Agent Engineer", tpm_section)
 
@@ -40,10 +40,33 @@ class RenderMarkdownTest(unittest.TestCase):
         self.assertEqual(md.count("No matches this week."), 1)
 
     def test_both_categories_render_when_there_are_no_matches_at_all(self):
-        md = digest._render_markdown(RUN_DATE, 10, [], [])
-        for label in digest.ROLE_LABELS.values():
-            self.assertIn(f"## {label}", md)
+        md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FRACTIONAL])
+        for label in digest.LANES[lanes.FRACTIONAL]["categories"].values():
+            self.assertIn(f"### {label}", md)
         self.assertEqual(md.count("No matches this week."), 2)
+
+    def test_a_lane_not_in_active_lanes_renders_no_heading_at_all(self):
+        md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FRACTIONAL])
+        self.assertNotIn(digest.LANES[lanes.FIRST_TPM]["label"], md)
+
+    def test_an_active_lane_with_no_matches_still_says_so(self):
+        md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FIRST_TPM])
+        self.assertIn(f"## {digest.LANES[lanes.FIRST_TPM]['label']}", md)
+        self.assertIn("No matches this week.", md)
+
+    def test_a_first_tpm_match_renders_under_its_lane_and_category_heading(self):
+        md = digest._render_markdown(RUN_DATE, 10, [
+            fixtures.scored("u1", 90, "first_tpm", title="First TPM Hire"),
+        ], [], active_lanes=[lanes.FIRST_TPM])
+        self.assertIn(f"## {digest.LANES[lanes.FIRST_TPM]['label']}", md)
+        self.assertIn("### First Technical Program Manager", md)
+        self.assertIn("First TPM Hire", md)
+
+    def test_both_lanes_render_their_own_headings_when_both_are_active(self):
+        md = digest._render_markdown(RUN_DATE, 10, [], [],
+                                     active_lanes=[lanes.FRACTIONAL, lanes.FIRST_TPM])
+        self.assertIn(f"## {digest.LANES[lanes.FRACTIONAL]['label']}", md)
+        self.assertIn(f"## {digest.LANES[lanes.FIRST_TPM]['label']}", md)
 
     def test_header_reports_the_candidate_count_reviewed(self):
         md = digest._render_markdown(RUN_DATE, 137, [], [])

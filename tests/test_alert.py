@@ -49,7 +49,8 @@ class SuccessHeartbeatTest(PipelineTestCase):
         os.environ["NTFY_TOPIC"] = "scout-test"
 
     @staticmethod
-    def _manifest(matches=2, rejected=0, candidates=137, per_source=None):
+    def _manifest(matches=2, rejected=0, candidates=137, per_source=None,
+                  unclassified=0, failed_chunk_indices=None):
         return {"stages": {
             "fetch": {"per_source": per_source if per_source is not None else {
                 "hn_whoishiring": {"count": 20},
@@ -57,6 +58,8 @@ class SuccessHeartbeatTest(PipelineTestCase):
                 "weworkremotely": {"count": 78},
             }},
             "dedupe": {"deduped_count": candidates},
+            "classify": {"unclassified_count": unclassified,
+                        "failed_chunk_indices": failed_chunk_indices or []},
             "digest": {"matches": matches, "classify_disagreements": rejected},
         }}
 
@@ -90,6 +93,11 @@ class SuccessHeartbeatTest(PipelineTestCase):
     def test_missing_stage_details_do_not_break_the_heartbeat(self):
         body = self._body({"stages": {}})
         self.assertIn("? matches from ? candidates", body)
+
+    def test_unclassified_listings_are_mentioned_only_when_present(self):
+        body = self._body(self._manifest(unclassified=20, failed_chunk_indices=[0]))
+        self.assertIn("(20 listings unclassified, 1 chunks failed)", body)
+        self.assertNotIn("unclassified", self._body(self._manifest()))
 
 
 if __name__ == "__main__":

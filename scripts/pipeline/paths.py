@@ -25,6 +25,16 @@ def checkpoint_path(run_date: str, stage: str) -> Path:
     return run_dir(run_date) / f"{stage}.json"
 
 
+def classify_chunks_dir(run_date: str) -> Path:
+    d = run_dir(run_date) / "classify_chunks"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def classify_chunk_path(run_date: str, chunk_index: int) -> Path:
+    return classify_chunks_dir(run_date) / f"{chunk_index}.json"
+
+
 def manifest_path(run_date: str) -> Path:
     return run_dir(run_date) / "manifest.json"
 
@@ -43,8 +53,14 @@ def matches_path(run_date: str) -> Path:
     return PROJECT_DIR / "matches" / f"{run_date}.md"
 
 
-def role_criteria_path() -> Path:
+def role_criteria_path(lane: str = "fractional") -> Path:
+    if lane == "first_tpm":
+        return PROJECT_DIR / "ROLE_CRITERIA_FIRST_TPM.md"
     return PROJECT_DIR / "ROLE_CRITERIA.md"
+
+
+def companies_csv_path() -> Path:
+    return PROJECT_DIR / "data" / "companies.csv"
 
 
 def prompts_dir() -> Path:

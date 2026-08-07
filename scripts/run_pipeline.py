@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Orchestrator for the weekly scout pipeline:
-fetch -> normalize -> dedupe -> classify -> score -> digest
+fetch(+fetch_ats) -> normalize -> prefilter -> dedupe -> classify -> score -> digest
 
 Each stage checkpoints its own output under data/runs/<date>/<stage>.json.
 Re-running for the same date resumes from the first stage that doesn't
 already have a checkpoint (i.e. the first stage that previously failed) -
 a failure at, say, classify doesn't force re-fetching. Pass --force to
 ignore checkpoints and redo every stage.
+
+Which lanes run (fractional, first_tpm, or both - see pipeline.lanes) is
+resolved once per run and threaded through fetch/fetch_ats and digest.
 """
 import argparse
 import json
 import sys
 from datetime import date
 
-from pipeline import (alert, classify, dedupe, digest, fetch, manifest,
-                      normalize, paths, score)
+from pipeline import (alert, classify, dedupe, digest, fetch, fetch_ats,
+                      lanes, manifest, normalize, paths, prefilter, score)
 
 
 def load_checkpoint(run_date: str, stage: str):
@@ -55,12 +58,17 @@ def main():
         return run_fn(run_date, *inputs)
 
     try:
-        fetch_cp = stage_output("fetch", fetch.run)
-        normalize_cp = stage_output("normalize", normalize.run, fetch_cp)
-        dedupe_cp = stage_output("dedupe", dedupe.run, normalize_cp)
+        active = lanes.active_lanes()
+        fetch_cp = (stage_output("fetch", fetch.run) if lanes.FRACTIONAL in active
+                   else {"sources": {}})
+        fetch_ats_cp = (stage_output("fetch_ats", fetch_ats.run) if lanes.FIRST_TPM in active
+                        else None)
+        normalize_cp = stage_output("normalize", normalize.run, fetch_cp, fetch_ats_cp)
+        prefilter_cp = stage_output("prefilter", prefilter.run, normalize_cp)
+        dedupe_cp = stage_output("dedupe", dedupe.run, prefilter_cp)
         classify_cp = stage_output("classify", classify.run, dedupe_cp)
         score_cp = stage_output("score", score.run, classify_cp)
-        digest_cp = stage_output("digest", digest.run, dedupe_cp, score_cp)
+        digest_cp = stage_output("digest", digest.run, dedupe_cp, score_cp, active)
     except Exception as e:
         print(f"Pipeline failed: {e}", file=sys.stderr)
         alert.send_failure_alert(run_date, str(e))

@@ -52,6 +52,16 @@ class PathLayoutTest(PipelineTestCase):
             paths.manifest_path("2026-08-03").parent,
         )
 
+    def test_classify_chunks_dir_is_created_on_demand(self):
+        d = paths.classify_chunks_dir("2026-08-03")
+        self.assertTrue(d.is_dir())
+        self.assertEqual(d, paths.run_dir("2026-08-03") / "classify_chunks")
+
+    def test_classify_chunk_path_lives_under_the_chunks_dir(self):
+        p = paths.classify_chunk_path("2026-08-03", 3)
+        self.assertEqual(p.name, "3.json")
+        self.assertEqual(p.parent, paths.classify_chunks_dir("2026-08-03"))
+
     def test_logs_dir_is_created_on_demand(self):
         self.assertTrue(paths.logs_dir().is_dir())
 
@@ -64,6 +74,20 @@ class PathLayoutTest(PipelineTestCase):
         PROJECT_DIR (like this test's) still finds the real templates."""
         self.assertTrue((paths.prompts_dir() / "classify_prompt.md").exists())
         self.assertTrue((paths.prompts_dir() / "score_prompt.md").exists())
+
+    def test_role_criteria_path_defaults_to_the_fractional_lane(self):
+        self.assertEqual(paths.role_criteria_path(),
+                         self.project_dir / "ROLE_CRITERIA.md")
+        self.assertEqual(paths.role_criteria_path("fractional"),
+                         self.project_dir / "ROLE_CRITERIA.md")
+
+    def test_role_criteria_path_selects_the_first_tpm_lane(self):
+        self.assertEqual(paths.role_criteria_path("first_tpm"),
+                         self.project_dir / "ROLE_CRITERIA_FIRST_TPM.md")
+
+    def test_companies_csv_path_lives_under_data(self):
+        self.assertEqual(paths.companies_csv_path(),
+                         self.project_dir / "data" / "companies.csv")
 
 
 if __name__ == "__main__":

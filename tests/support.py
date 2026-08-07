@@ -61,8 +61,8 @@ class PipelineTestCase(unittest.TestCase):
                 logger.removeHandler(handler)
             del manager.loggerDict[name]
 
-    def write_role_criteria(self, text=ROLE_CRITERIA_STUB):
-        path = self.project_dir / "ROLE_CRITERIA.md"
+    def write_role_criteria(self, text=ROLE_CRITERIA_STUB, lane="fractional"):
+        path = paths.role_criteria_path(lane)
         path.write_text(text)
         return path
 

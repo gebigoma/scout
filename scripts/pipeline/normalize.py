@@ -161,14 +161,51 @@ NORMALIZERS = {
 }
 
 
-def run(run_date: str, fetch_checkpoint: dict) -> dict:
+def _normalize_ats(companies_results: dict) -> list:
+    result = []
+    for info in companies_results.values():
+        if info["status"] != "success":
+            continue
+        company = info["company"]
+        for job in info["jobs"]:
+            if company["ats"] == "greenhouse":
+                title, url = job.get("title", ""), job.get("absolute_url", "")
+                posted = job.get("updated_at", "")
+                desc = job.get("content", "")
+            elif company["ats"] == "ashby":
+                title, url = job.get("title", ""), job.get("jobUrl", "")
+                posted = job.get("publishedAt", "")
+                desc = job.get("descriptionPlain", "")
+            else:  # lever
+                title, url = job.get("text", ""), job.get("hostedUrl", "")
+                posted = job.get("createdAt", "")
+                desc = job.get("descriptionPlain", job.get("description", ""))
+            result.append({
+                "source": f"{company['ats']}:{company['token']}",
+                "title": _one_line(title),
+                "company": company["name"],
+                "url": url,
+                "posted_date": str(posted),
+                "snippet": _extract_snippet(_strip_html(desc)),
+                "tags": [],
+                "lane": "first_tpm",
+                "headcount": company.get("headcount"),
+            })
+    return result
+
+
+def run(run_date: str, fetch_checkpoint: dict, fetch_ats_checkpoint: dict = None) -> dict:
     logger = logging_setup.get_logger(run_date)
     manifest.stage_started(run_date, "normalize")
 
     listings = []
     for source_name, normalize_fn in NORMALIZERS.items():
         source_data = fetch_checkpoint["sources"].get(source_name, {})
-        listings.extend(normalize_fn(source_data.get("items", [])))
+        listings.extend({**l, "lane": "fractional"}
+                        for l in normalize_fn(source_data.get("items", [])))
+
+    if fetch_ats_checkpoint:
+        listings.extend(_normalize_ats(fetch_ats_checkpoint["companies"]))
 
     checkpoint = {"listings": listings}
     paths.atomic_write_json(paths.checkpoint_path(run_date, "normalize"), checkpoint)

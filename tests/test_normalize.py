@@ -188,6 +188,48 @@ class NormalizeHnTest(unittest.TestCase):
         self.assertEqual(len(listing["title"]), 100)
 
 
+class NormalizeAtsTest(unittest.TestCase):
+    def _companies_results(self, ats, job, **company_overrides):
+        company = {"name": "Acme Robotics", "ats": ats, "token": "acmerobotics",
+                   "headcount": 85, "source": "lightspeed", **company_overrides}
+        return {company["name"]: {"status": "success", "company": company, "jobs": [job]}}
+
+    def test_greenhouse_fields_are_mapped_and_tagged_first_tpm(self):
+        listing, = normalize._normalize_ats(
+            self._companies_results("greenhouse", fixtures.GREENHOUSE_JOB))
+        self.assertEqual(listing["title"], "First Technical Program Manager")
+        self.assertEqual(listing["company"], "Acme Robotics")
+        self.assertEqual(listing["url"], fixtures.GREENHOUSE_JOB["absolute_url"])
+        self.assertEqual(listing["lane"], "first_tpm")
+        self.assertEqual(listing["headcount"], 85)
+        self.assertIn("first TPM hire", listing["snippet"])
+
+    def test_ashby_uses_description_plain(self):
+        listing, = normalize._normalize_ats(
+            self._companies_results("ashby", fixtures.ASHBY_JOB))
+        self.assertEqual(listing["title"], "Senior Technical Program Manager")
+        self.assertEqual(listing["url"], fixtures.ASHBY_JOB["jobUrl"])
+        self.assertIn("second TPM", listing["snippet"])
+
+    def test_lever_uses_text_and_hosted_url(self):
+        listing, = normalize._normalize_ats(
+            self._companies_results("lever", fixtures.LEVER_JOB))
+        self.assertEqual(listing["title"], "Staff Program Manager, Infrastructure")
+        self.assertEqual(listing["url"], fixtures.LEVER_JOB["hostedUrl"])
+
+    def test_failed_or_skipped_companies_contribute_no_listings(self):
+        results = {
+            "Down Co": {"status": "failed", "company": {"ats": "greenhouse"}, "jobs": []},
+            "Gone Co": {"status": "skipped", "company": {"ats": "greenhouse"}, "jobs": []},
+        }
+        self.assertEqual(normalize._normalize_ats(results), [])
+
+    def test_missing_headcount_is_carried_through_as_none(self):
+        listing, = normalize._normalize_ats(
+            self._companies_results("greenhouse", fixtures.GREENHOUSE_JOB, headcount=None))
+        self.assertIsNone(listing["headcount"])
+
+
 class NormalizeRunTest(PipelineTestCase):
     def _fetch_checkpoint(self, **sources):
         return {"sources": {name: {"status": "success", "items": items}
@@ -214,9 +256,10 @@ class NormalizeRunTest(PipelineTestCase):
             weworkremotely=[fixtures.WWR_ITEM],
             hn_whoishiring=[fixtures.HN_ITEM],
         ))
-        expected = {"source", "title", "company", "url", "posted_date", "snippet", "tags"}
+        expected = {"source", "title", "company", "url", "posted_date", "snippet", "tags", "lane"}
         for listing in checkpoint["listings"]:
             self.assertEqual(set(listing), expected)
+            self.assertEqual(listing["lane"], "fractional")
 
     def test_writes_the_checkpoint_and_marks_the_stage_succeeded(self):
         normalize.run(RUN_DATE, self._fetch_checkpoint(remoteok=[fixtures.REMOTEOK_ITEM]))
@@ -224,6 +267,27 @@ class NormalizeRunTest(PipelineTestCase):
         self.assertEqual(len(on_disk["listings"]), 1)
         entry = manifest.load(RUN_DATE)["stages"]["normalize"]
         self.assertEqual((entry["status"], entry["count"]), ("success", 1))
+
+    def test_works_unchanged_with_no_ats_checkpoint(self):
+        """Backward compatibility for the fractional-only call shape."""
+        checkpoint = normalize.run(RUN_DATE, self._fetch_checkpoint(
+            remoteok=[fixtures.REMOTEOK_ITEM]))
+        self.assertEqual(len(checkpoint["listings"]), 1)
+
+    def test_merges_in_ats_listings_when_a_fetch_ats_checkpoint_is_given(self):
+        fetch_ats_cp = {"companies": {
+            "Acme Robotics": {
+                "status": "success",
+                "company": {"name": "Acme Robotics", "ats": "greenhouse",
+                            "token": "acmerobotics", "headcount": 85, "source": "lightspeed"},
+                "jobs": [fixtures.GREENHOUSE_JOB],
+            },
+        }}
+        checkpoint = normalize.run(
+            RUN_DATE, self._fetch_checkpoint(remoteok=[fixtures.REMOTEOK_ITEM]), fetch_ats_cp)
+        self.assertEqual(len(checkpoint["listings"]), 2)
+        lanes = {l["lane"] for l in checkpoint["listings"]}
+        self.assertEqual(lanes, {"fractional", "first_tpm"})
 
 
 if __name__ == "__main__":

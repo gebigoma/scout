@@ -3,11 +3,24 @@ score checkpoint, updates data/seen.json, and commits+pushes the result."""
 import json
 import subprocess
 
-from . import logging_setup, manifest, paths
+from . import lanes, logging_setup, manifest, paths
 
-ROLE_LABELS = {
-    "senior_tpm": "Senior Technical Program Management",
-    "agentic_ai_engineer": "Agentic AI Engineer",
+# One top-level heading per lane, so a paused lane renders no heading at all
+# and it's obvious at a glance which matches came from which lane.
+LANES = {
+    lanes.FRACTIONAL: {
+        "label": "Fractional Roles",
+        "categories": {
+            "senior_tpm": "Senior Technical Program Management",
+            "agentic_ai_engineer": "Agentic AI Engineer",
+        },
+    },
+    lanes.FIRST_TPM: {
+        "label": "First TPM",
+        "categories": {
+            "first_tpm": "First Technical Program Manager",
+        },
+    },
 }
 
 # Per the fit score guide in ROLE_CRITERIA.md, anything below this shouldn't
@@ -18,7 +31,8 @@ SCORE_FLOOR = 35
 
 
 def _render_markdown(run_date: str, candidate_count: int,
-                     scored: list, rejected: list) -> str:
+                     scored: list, rejected: list, active_lanes: list = None) -> str:
+    active_lanes = active_lanes if active_lanes is not None else [lanes.FRACTIONAL]
     lines = [f"# Matches — {run_date}", ""]
     lines.append(
         f"Sources: RemoteOK, We Work Remotely (Programming + Product), "
@@ -27,24 +41,28 @@ def _render_markdown(run_date: str, candidate_count: int,
     )
     lines.append("")
 
-    for category, label in ROLE_LABELS.items():
-        lines.append(f"## {label}")
+    for lane in active_lanes:
+        lane_info = LANES[lane]
+        lines.append(f"## {lane_info['label']}")
         lines.append("")
-        category_matches = sorted(
-            (m for m in scored if m["role_category"] == category),
-            key=lambda m: m["fit_score"], reverse=True,
-        )
-        if not category_matches:
-            lines.append("No matches this week.")
+        for category, label in lane_info["categories"].items():
+            lines.append(f"### {label}")
             lines.append("")
-            continue
-        for m in category_matches:
-            listing = m["listing"]
-            company = listing.get("company") or listing["source"]
-            lines.append(f"- **{listing['title']}** — {company} (fit: {m['fit_score']}/100)")
-            lines.append(f"  {listing['url']}")
-            lines.append(f"  {m['rationale']}")
-            lines.append("")
+            category_matches = sorted(
+                (m for m in scored if m["role_category"] == category),
+                key=lambda m: m["fit_score"], reverse=True,
+            )
+            if not category_matches:
+                lines.append("No matches this week.")
+                lines.append("")
+                continue
+            for m in category_matches:
+                listing = m["listing"]
+                company = listing.get("company") or listing["source"]
+                lines.append(f"- **{listing['title']}** — {company} (fit: {m['fit_score']}/100)")
+                lines.append(f"  {listing['url']}")
+                lines.append(f"  {m['rationale']}")
+                lines.append("")
 
     if rejected:
         lines.append("## Rejected on scoring")
@@ -99,9 +117,11 @@ def _unpushed_commit_count() -> int:
         return 0  # no upstream configured - nothing we can reason about
 
 
-def run(run_date: str, dedupe_checkpoint: dict, score_checkpoint: dict) -> dict:
+def run(run_date: str, dedupe_checkpoint: dict, score_checkpoint: dict,
+       active_lanes: list = None) -> dict:
     logger = logging_setup.get_logger(run_date)
     manifest.stage_started(run_date, "digest")
+    active_lanes = active_lanes if active_lanes is not None else lanes.active_lanes()
 
     try:
         all_scored = score_checkpoint["scored"]
@@ -109,7 +129,7 @@ def run(run_date: str, dedupe_checkpoint: dict, score_checkpoint: dict) -> dict:
         rejected = [m for m in all_scored if m["fit_score"] < SCORE_FLOOR]
         candidate_count = len(dedupe_checkpoint["listings"])
 
-        markdown = _render_markdown(run_date, candidate_count, scored, rejected)
+        markdown = _render_markdown(run_date, candidate_count, scored, rejected, active_lanes)
         paths.matches_path(run_date).parent.mkdir(parents=True, exist_ok=True)
         paths.matches_path(run_date).write_text(markdown)
         # Only published matches are recorded as seen - a listing rejected on

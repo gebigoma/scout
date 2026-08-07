@@ -1,22 +1,30 @@
 import contextlib
 import io
+import os
 import unittest
 from datetime import date as real_date
 from unittest import mock
 
 import run_pipeline
-from pipeline import alert, classify, dedupe, digest, fetch, manifest, normalize, paths, score
+from pipeline import (alert, classify, dedupe, digest, fetch, fetch_ats, lanes,
+                      manifest, normalize, paths, prefilter, score)
 
 from .support import RUN_DATE, PipelineTestCase
 
 STAGE_OUTPUTS = {
     "fetch": {"sources": {}},
+    "fetch_ats": {"companies": {}},
     "normalize": {"listings": []},
+    "prefilter": {"listings": []},
     "dedupe": {"listings": []},
     "classify": {"matches": []},
     "score": {"scored": []},
     "digest": {"matches": 0, "rejected": 0, "committed": True, "pushed": True},
 }
+
+STAGE_MODULES = [("fetch", fetch), ("fetch_ats", fetch_ats), ("normalize", normalize),
+                 ("prefilter", prefilter), ("dedupe", dedupe), ("classify", classify),
+                 ("score", score), ("digest", digest)]
 
 
 class LoadCheckpointTest(PipelineTestCase):
@@ -40,9 +48,7 @@ class MainTest(PipelineTestCase):
     def setUp(self):
         super().setUp()
         self.stages = {}
-        for name, module in [("fetch", fetch), ("normalize", normalize),
-                             ("dedupe", dedupe), ("classify", classify),
-                             ("score", score), ("digest", digest)]:
+        for name, module in STAGE_MODULES:
             patcher = mock.patch.object(module, "run", return_value=STAGE_OUTPUTS[name])
             self.stages[name] = patcher.start()
             self.addCleanup(patcher.stop)
@@ -62,23 +68,29 @@ class MainTest(PipelineTestCase):
                                 STAGE_OUTPUTS[stage])
 
     def test_runs_every_stage_in_order(self):
+        """Both lanes are active by default, so every stage - including the
+        first-TPM lane's fetch_ats/prefilter - runs."""
         self._main("--date", RUN_DATE)
         for name, stage in self.stages.items():
             self.assertEqual(stage.call_count, 1, name)
 
     def test_stages_receive_the_previous_stages_output(self):
         self._main("--date", RUN_DATE)
-        self.stages["normalize"].assert_called_once_with(RUN_DATE, STAGE_OUTPUTS["fetch"])
-        # digest needs the dedupe candidate list as well, for the header count.
+        self.stages["normalize"].assert_called_once_with(
+            RUN_DATE, STAGE_OUTPUTS["fetch"], STAGE_OUTPUTS["fetch_ats"])
+        self.stages["dedupe"].assert_called_once_with(RUN_DATE, STAGE_OUTPUTS["prefilter"])
+        # digest needs the dedupe candidate list and the active lanes too,
+        # for the header count and the per-lane sections.
         self.stages["digest"].assert_called_once_with(
-            RUN_DATE, STAGE_OUTPUTS["dedupe"], STAGE_OUTPUTS["score"])
+            RUN_DATE, STAGE_OUTPUTS["dedupe"], STAGE_OUTPUTS["score"],
+            [lanes.FRACTIONAL, lanes.FIRST_TPM])
 
     def test_resumes_from_the_first_stage_without_a_checkpoint(self):
         """A failure at classify must not force a re-fetch of everything."""
-        for stage in ("fetch", "normalize", "dedupe"):
+        for stage in ("fetch", "fetch_ats", "normalize", "prefilter", "dedupe"):
             self._write_checkpoint(stage)
         self._main("--date", RUN_DATE)
-        for stage in ("fetch", "normalize", "dedupe"):
+        for stage in ("fetch", "fetch_ats", "normalize", "prefilter", "dedupe"):
             self.stages[stage].assert_not_called()
         for stage in ("classify", "score", "digest"):
             self.assertEqual(self.stages[stage].call_count, 1, stage)
@@ -149,6 +161,28 @@ class MainTest(PipelineTestCase):
         output = self._main("--date", RUN_DATE)
         self.assertIn("3 matches", output)
         self.assertIn("pushed=True", output)
+
+    def test_scout_lanes_fractional_skips_fetch_ats_entirely(self):
+        os.environ["SCOUT_LANES"] = "fractional"
+        self._main("--date", RUN_DATE)
+        self.stages["fetch"].assert_called_once()
+        self.stages["fetch_ats"].assert_not_called()
+        self.stages["digest"].assert_called_once_with(
+            RUN_DATE, STAGE_OUTPUTS["dedupe"], STAGE_OUTPUTS["score"], [lanes.FRACTIONAL])
+
+    def test_scout_lanes_first_tpm_skips_fetch_entirely(self):
+        os.environ["SCOUT_LANES"] = "first_tpm"
+        self._main("--date", RUN_DATE)
+        self.stages["fetch"].assert_not_called()
+        self.stages["fetch_ats"].assert_called_once()
+        self.stages["digest"].assert_called_once_with(
+            RUN_DATE, STAGE_OUTPUTS["dedupe"], STAGE_OUTPUTS["score"], [lanes.FIRST_TPM])
+
+    def test_the_default_with_no_scout_lanes_set_runs_both_fetch_stages(self):
+        os.environ.pop("SCOUT_LANES", None)
+        self._main("--date", RUN_DATE)
+        self.stages["fetch"].assert_called_once()
+        self.stages["fetch_ats"].assert_called_once()
 
 
 if __name__ == "__main__":
