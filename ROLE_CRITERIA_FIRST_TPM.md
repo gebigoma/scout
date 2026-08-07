@@ -72,10 +72,9 @@ frequently unavailable, so a missing or out-of-band number lowers the score
 rather than disqualifying the listing.
 
 - **85-100** — Ideal: explicit first/second-TPM language, company in the
-  50-150 band, infrastructure / dev-tools / AI domain, senior scope.
+  50-150 band, senior scope.
 - **60-84** — Strong: explicit foundation language and clear role fit, but
-  missing one dimension (headcount unknown, or somewhat outside the band, or
-  domain is adjacent rather than infra/dev-tools).
+  missing one dimension (headcount unknown, or somewhat outside the band).
 - **35-59** — Marginal: still a genuine match, but the foundation evidence
   leans implicit rather than explicit, or the company is well outside the size
   band (a 400-person company hiring its "first TPM" is real but a different
@@ -86,6 +85,16 @@ rather than disqualifying the listing.
 
 State the company's headcount in the rationale when known, and say "size
 unknown" when it isn't — never guess it.
+
+**Domain is not scored.** State the company's domain in the rationale
+(infrastructure, dev-tools, fintech, health, …) so it's visible at a glance,
+but do not raise or lower the score for it. An earlier version of this guide
+required an infra/dev-tools/AI domain for the 85-100 band, which capped
+otherwise-ideal matches at 84 on domain alone. That was a preference encoded
+as a rubric, and because it moved rank rather than filtering, its cost would
+have been invisible — non-infra matches would simply have sorted lower with
+no indication of what was lost. Revisit only with real data on which domains
+actually yield founding-TPM roles.
 
 ## Output format
 

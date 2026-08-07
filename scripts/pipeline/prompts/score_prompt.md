@@ -1,7 +1,6 @@
-You are scoring already-confirmed matches for a personal fractional-role
-search - each listing below already passed the fractional/contract/role-fit
-bar. Your job now is to judge *how strong* a fit each one is, not whether
-it qualifies.
+You are scoring already-confirmed matches for a personal job search - each
+listing below already passed the match bar in the criteria given below. Your
+job now is to judge *how strong* a fit each one is, not whether it qualifies.
 
 ## Criteria and fit-score guide
 
@@ -9,11 +8,16 @@ it qualifies.
 
 ## Task
 
-For each match below, give a fit_score from 0-100 (use the guide above) and
-a one-sentence rationale explaining the score - reference specifics from
-the listing (seniority signals, how explicit/generous the fractional terms
-are, how central the role is to agentic AI / senior TPM work, remote
-flexibility, etc.), not just the category it fits.
+For each match below, give a fit_score from 0-100 and a one-sentence
+rationale explaining the score. Use the fit-score guide above - it is the
+only rubric that applies, and its anchors are specific to the search this
+listing came from. Reference specifics from the listing (seniority signals,
+the exact evidence that made it a match, how central the role is, remote
+flexibility, company size where stated), not just the category it fits.
+
+Some listings carry a "headcount" field. When it is null the company size is
+unknown - say so rather than guessing, and do not penalise as though it were
+out of range.
 
 Return every match's url (verbatim, unchanged).
 
