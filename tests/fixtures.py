@@ -160,6 +160,56 @@ def listing(url, **overrides):
     return base
 
 
+# --- first-TPM lane fixtures -------------------------------------------
+
+COMPANIES_CSV_SAMPLE = """name,ats,token,headcount,source
+Acme Robotics,greenhouse,acmerobotics,85,lightspeed
+Bounce Systems,ashby,bouncesystems,,bessemer
+Cavil Data,lever,cavildata,140,accel
+"""
+
+# Greenhouse's `?content=true` flag is load-bearing - without it there is no
+# "content" (description) field at all.
+GREENHOUSE_JOB = {
+    "id": 4029384756,
+    "title": "First Technical Program Manager",
+    "updated_at": "2026-08-01T12:00:00-07:00",
+    "absolute_url": "https://boards.greenhouse.io/acmerobotics/jobs/4029384756",
+    "content": "<p>You will be our <strong>first TPM hire</strong>, establishing "
+               "the program management function from scratch.</p>",
+}
+
+# Ashby's posting-api includes descriptionPlain by default.
+ASHBY_JOB = {
+    "id": "9f2b1c3d-0000-0000-0000-000000000000",
+    "title": "Senior Technical Program Manager",
+    "jobUrl": "https://jobs.ashbyhq.com/bouncesystems/senior-tpm",
+    "publishedAt": "2026-07-28T00:00:00.000Z",
+    "descriptionPlain": "Join us as our second TPM on the team, building out "
+                        "our TPM practice alongside engineering leadership.",
+}
+
+# Lever's postings endpoint (?mode=json) returns a bare JSON list.
+LEVER_JOB = {
+    "id": "a1b2c3d4-1111-1111-1111-111111111111",
+    "text": "Staff Program Manager, Infrastructure",
+    "hostedUrl": "https://jobs.lever.co/cavildata/staff-program-manager",
+    "createdAt": 1785200000000,
+    "descriptionPlain": "Vulnerability scanning on TPM 2.0 modules and vTPM "
+                        "attestation - no program management language here.",
+}
+
+
+def verdict(id_, verdict="match", role_category="senior_tpm", **overrides):
+    """A single chunk-response entry, as the model returns it."""
+    base = {"id": id_, "verdict": verdict}
+    if verdict == "match":
+        base.update(role_category=role_category,
+                     reason="Explicitly fractional and a senior TPM role.")
+    base.update(overrides)
+    return base
+
+
 def match(url, role_category="senior_tpm", **listing_overrides):
     """A classify-stage match: the model's verdict plus the source listing."""
     return {

@@ -46,8 +46,11 @@ def send_success_heartbeat(run_date: str, manifest: dict) -> None:
     candidates = stages.get("dedupe", {}).get("deduped_count", "?")
     matches = stages.get("digest", {}).get("matches", "?")
     rejected = stages.get("digest", {}).get("classify_disagreements", 0)
+    unclassified = stages.get("classify", {}).get("unclassified_count", 0)
+    failed_chunks = stages.get("classify", {}).get("failed_chunk_indices", [])
 
     message = (f"{matches} matches from {candidates} candidates"
-               f"{f' ({rejected} rejected on scoring)' if rejected else ''}\n"
+               f"{f' ({rejected} rejected on scoring)' if rejected else ''}"
+               f"{f' ({unclassified} listings unclassified, {len(failed_chunks)} chunks failed)' if unclassified else ''}\n"
                f"sources: {counts}")
     _notify(message, title=f"scout {run_date} ok", priority="low")

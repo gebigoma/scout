@@ -13,15 +13,14 @@ fractional-friendly for this purpose, and can be a strong match even if its
 wording doesn't line up neatly with the criteria's phrasing. Do not guess or
 infer employer flexibility that isn't stated in the listing.
 
-Only include a listing in your output if it is a genuine match: it
-explicitly states fractional/contract/part-time/interim terms AND fits one
-of the target roles (senior Technical Program Management, or Agentic AI
-Engineer / AI engineering leadership, or a close adjacent). Omit everything
-else entirely - you do not need to explain why something isn't a match.
+Return a verdict for **every** listing in the array below - one entry per
+listing, no omissions and no additions. {match_rule}
 
-For each match, return: the listing's url (verbatim, unchanged), which role
-category it fits ("senior_tpm" or "agentic_ai_engineer"), and a one-sentence
-reason.
+For each listing, return its `id` (the integer given below, copied back
+exactly - never invent or omit one) and a `verdict` of `"match"` or
+`"no_match"`. For a `"match"`, also return which role category it fits
+{role_category_hint} and a one-sentence reason. For a `"no_match"`, return
+nothing else - no reason needed.
 
 ## Listings
 

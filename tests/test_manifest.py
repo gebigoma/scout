@@ -59,6 +59,11 @@ class ManifestLifecycleTest(PipelineTestCase):
         self.assertIsNone(m["error"])
         self.assertIsNotNone(m["finished_at"])
 
+    def test_the_new_first_tpm_lane_stages_default_to_pending(self):
+        m = manifest.load(RUN_DATE)
+        self.assertEqual(m["stages"]["fetch_ats"]["status"], "pending")
+        self.assertEqual(m["stages"]["prefilter"]["status"], "pending")
+
     def test_updates_accumulate_across_stages(self):
         manifest.stage_started(RUN_DATE, "fetch")
         manifest.stage_succeeded(RUN_DATE, "fetch", total_count=3)
