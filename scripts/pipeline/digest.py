@@ -10,6 +10,8 @@ from . import lanes, logging_setup, manifest, paths
 LANES = {
     lanes.FRACTIONAL: {
         "label": "Fractional Roles",
+        "sources": "RemoteOK, We Work Remotely (Programming + Product), HN \"Who is hiring\"",
+        "criteria": "ROLE_CRITERIA.md",
         "categories": {
             "senior_tpm": "Senior Technical Program Management",
             "agentic_ai_engineer": "Agentic AI Engineer",
@@ -17,6 +19,8 @@ LANES = {
     },
     lanes.FIRST_TPM: {
         "label": "First TPM",
+        "sources": "Greenhouse, Ashby, and Lever boards of VC-portfolio companies",
+        "criteria": "ROLE_CRITERIA_FIRST_TPM.md",
         "categories": {
             "first_tpm": "First Technical Program Manager",
         },
@@ -34,10 +38,13 @@ def _render_markdown(run_date: str, candidate_count: int,
                      scored: list, rejected: list, active_lanes: list = None) -> str:
     active_lanes = active_lanes if active_lanes is not None else [lanes.FRACTIONAL]
     lines = [f"# Matches — {run_date}", ""]
+    sources = "; ".join(LANES[lane]["sources"] for lane in active_lanes)
+    criteria_links = " and ".join(
+        f"[`{LANES[lane]['criteria']}`](../{LANES[lane]['criteria']})" for lane in active_lanes
+    )
     lines.append(
-        f"Sources: RemoteOK, We Work Remotely (Programming + Product), "
-        f"HN \"Who is hiring\". {candidate_count} candidate listings reviewed "
-        f"against [`ROLE_CRITERIA.md`](../ROLE_CRITERIA.md)."
+        f"Sources: {sources}. {candidate_count} candidate listings reviewed "
+        f"against {criteria_links}."
     )
     lines.append("")
 
