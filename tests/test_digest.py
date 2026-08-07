@@ -73,6 +73,23 @@ class RenderMarkdownTest(unittest.TestCase):
         self.assertIn(f"# Matches — {RUN_DATE}", md)
         self.assertIn("137 candidate listings reviewed", md)
 
+    def test_header_names_only_the_sources_of_lanes_that_actually_ran(self):
+        """A first-TPM-only run must not claim RemoteOK/WWR/HN as its sources -
+        those belong to the fractional lane and weren't fetched this run."""
+        md = digest._render_markdown(RUN_DATE, 0, [], [], active_lanes=[lanes.FIRST_TPM])
+        self.assertNotIn("RemoteOK", md)
+        self.assertNotIn("ROLE_CRITERIA.md", md)
+        self.assertIn("VC-portfolio companies", md)
+        self.assertIn("ROLE_CRITERIA_FIRST_TPM.md", md)
+
+    def test_header_names_both_lanes_sources_when_both_are_active(self):
+        md = digest._render_markdown(RUN_DATE, 0, [], [],
+                                     active_lanes=[lanes.FRACTIONAL, lanes.FIRST_TPM])
+        self.assertIn("RemoteOK", md)
+        self.assertIn("VC-portfolio companies", md)
+        self.assertIn("ROLE_CRITERIA.md", md)
+        self.assertIn("ROLE_CRITERIA_FIRST_TPM.md", md)
+
     def test_company_falls_back_to_the_source_when_unknown(self):
         md = digest._render_markdown(RUN_DATE, 10, [
             fixtures.scored("u1", 90, company="", source="hn:Who is hiring")], [])
