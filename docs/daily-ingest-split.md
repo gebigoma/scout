@@ -1,16 +1,20 @@
 # Design: split daily ingest from the weekly digest
 
 **Status:** proposed, not implemented
-**Date:** 2026-08-03
+**Date:** 2026-08-03 (problem statement below predates the first-TPM lane
+and chunked classify, both since landed — see "Sequencing note")
 
 ## Problem
 
 Everything runs weekly. A single `launchd` job
 (`~/Library/LaunchAgents/com.scout.weeklyfetch.plist`, Mondays 09:00) runs
-all six stages of `scripts/run_pipeline.py`, so `fetch` only ever runs when
-the digest runs.
+every stage of `scripts/run_pipeline.py`
+(`fetch`(+`fetch_ats`) → `normalize` → `prefilter` → `dedupe` → `classify` →
+`score` → `digest`, see [`docs/first-tpm-lane.md`](./first-tpm-lane.md) for
+the two newer stages), so `fetch` only ever runs when the digest runs.
 
-Two of the three sources are **rolling windows**, not archives:
+This problem is specific to the **fractional lane**. Two of its three
+sources are **rolling windows**, not archives:
 
 | source | shape | consequence of weekly polling |
 | --- | --- | --- |
@@ -31,13 +35,20 @@ RemoteOK postings — and the pipeline reports success on such a run, because
 nothing failed. It is a silent recall loss, which is the failure mode this
 project has been most careful about elsewhere.
 
+The first-TPM lane's `fetch_ats` does **not** have this problem — Greenhouse/
+Ashby/Lever return each company's current listings in full, not a rolling
+window, so a Monday-only fetch sees everything a company has posted. It
+would still benefit from moving into the daily phase below (it's pure Python,
+no LLM cost, and it's the slowest stage once `data/companies.csv` has real
+size), but for throughput/staleness reasons, not recall.
+
 ## Proposal
 
 Split the pipeline at the LLM boundary, which is also the cost boundary:
 
 ```
-daily    fetch → normalize → dedupe        (pure Python, no LLM, no usage cost)
-                     ↓
+daily    fetch(+fetch_ats) → normalize → prefilter → dedupe
+                     ↓                       (pure Python, no LLM, no usage cost)
                 data/pool.json
                      ↓
 weekly   classify → score → digest         (the two Claude calls, then publish)
@@ -53,7 +64,11 @@ over everything accumulated since the last digest.
 Add `--mode ingest|digest|full` to `scripts/run_pipeline.py` (default
 `full`, preserving today's behaviour and the manual-run instructions in the
 README). The existing `stage_output()` checkpoint/resume machinery needs no
-change — only the stage list it walks.
+change — only the stage list it walks. That list is now
+`fetch`(+`fetch_ats`) → `normalize` → `prefilter` → `dedupe` for `ingest`,
+`classify` → `score` → `digest` for `digest` — the lane-conditional
+`fetch`/`fetch_ats` skip logic (`lanes.active_lanes()`) stays exactly where
+it is, just inside the `ingest` branch instead of unconditionally.
 
 ### 2. The pool
 
@@ -110,6 +125,9 @@ until it rolls off the source.
   the pool size for the window.
 - The commit message `Weekly matches: <date>` and the path-scoped
   `git commit -- <paths>` are fine as-is.
+- `_render_markdown` and `run()` already take `active_lanes` (per-lane
+  sections, from [`docs/first-tpm-lane.md`](./first-tpm-lane.md)); that
+  parameter is orthogonal to this change and needs no rework here.
 
 ### 6. Scheduling
 
@@ -145,14 +163,24 @@ change with the refactor. Add coverage for:
 
 ## Sequencing note
 
-The classify prompt is already ~48K tokens for a single day's listings.
-Accumulating seven days makes the other open item — the single monolithic
-classify call, which should become chunked batches with a verdict required
-for every input id — considerably more urgent. Daily ingest *without*
-chunking will likely degrade classify recall, which defeats the purpose of
-ingesting more.
+**Chunking has landed** ([`docs/chunked-classify.md`](./chunked-classify.md),
+implemented 2026-08-07): classify now splits into id-addressed chunks
+(default 50 listings, `SCOUT_CLASSIFY_CHUNK_SIZE`) with a verdict required
+for every input id, instead of one monolithic call returning matches only.
+That was the blocker this note originally raised — accumulating seven days
+of listings into a single call would have made the already-~48K-token
+fractional-lane prompt worse, and a silently low-recall response would have
+been indistinguishable from an honest zero. Chunking removes that risk, so
+this design no longer needs to be sequenced *before* daily ingest; it can
+land on its own whenever it's next prioritized.
 
-Sequence chunking first, or do the two together.
+The first-TPM lane ([`docs/first-tpm-lane.md`](./first-tpm-lane.md), also
+implemented 2026-08-07) changes the shape of this problem rather than
+removing it: a few hundred companies' worth of ATS postings is a
+substantially larger weekly candidate pool than the three fractional-lane
+boards, even after the `prefilter` stage cuts it down. Chunking makes that
+volume tractable per-run; daily ingest would still reduce how much of it
+piles up into any single weekly `classify` pass.
 
 ## Non-goals
 
