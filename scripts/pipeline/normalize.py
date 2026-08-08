@@ -170,7 +170,7 @@ def _normalize_ats(companies_results: dict) -> list:
         for job in info["jobs"]:
             if company["ats"] == "greenhouse":
                 title, url = job.get("title", ""), job.get("absolute_url", "")
-                posted = job.get("updated_at", "")
+                posted = job.get("first_published", "")
                 desc = job.get("content", "")
             elif company["ats"] == "ashby":
                 title, url = job.get("title", ""), job.get("jobUrl", "")
