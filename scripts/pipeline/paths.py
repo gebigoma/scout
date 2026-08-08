@@ -53,6 +53,10 @@ def matches_path(run_date: str) -> Path:
     return PROJECT_DIR / "matches" / f"{run_date}.md"
 
 
+def signals_path(run_date: str) -> Path:
+    return PROJECT_DIR / "signals" / f"{run_date}.md"
+
+
 def role_criteria_path(lane: str = "fractional") -> Path:
     if lane == "first_tpm":
         return PROJECT_DIR / "ROLE_CRITERIA_FIRST_TPM.md"

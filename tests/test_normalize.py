@@ -203,6 +203,9 @@ class NormalizeAtsTest(unittest.TestCase):
         self.assertEqual(listing["lane"], "first_tpm")
         self.assertEqual(listing["headcount"], 85)
         self.assertIn("first TPM hire", listing["snippet"])
+        # first_published, not updated_at - the two differ by years in the
+        # fixture specifically to catch a regression back to the wrong field.
+        self.assertEqual(listing["posted_date"], fixtures.GREENHOUSE_JOB["first_published"])
 
     def test_ashby_uses_description_plain(self):
         listing, = normalize._normalize_ats(

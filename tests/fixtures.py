@@ -173,10 +173,15 @@ Cavil Data,lever,cavildata,140,accel
 GREENHOUSE_JOB = {
     "id": 4029384756,
     "title": "First Technical Program Manager",
+    # first_published is the field normalize.py actually reads for
+    # posted_date; updated_at is years newer, so a test asserting on the
+    # wrong field would still pass with a bogus recency signal.
+    "first_published": "2023-02-14T09:00:00-08:00",
     "updated_at": "2026-08-01T12:00:00-07:00",
     "absolute_url": "https://boards.greenhouse.io/acmerobotics/jobs/4029384756",
     "content": "<p>You will be our <strong>first TPM hire</strong>, establishing "
                "the program management function from scratch.</p>",
+    "departments": [{"name": "Research & Development"}],
 }
 
 # Ashby's posting-api includes descriptionPlain by default.
