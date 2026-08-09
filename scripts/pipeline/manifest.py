@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 
 from . import paths
 
-STAGES = ["fetch", "fetch_ats", "normalize", "prefilter", "dedupe", "classify", "score", "digest"]
+STAGES = ["fetch", "fetch_ats", "normalize", "prefilter", "dedupe", "classify", "score",
+          "company_signals", "digest"]
 
 
 def load(run_date: str) -> dict:

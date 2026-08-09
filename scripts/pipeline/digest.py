@@ -144,6 +144,11 @@ def run(run_date: str, dedupe_checkpoint: dict, score_checkpoint: dict,
         _update_seen(run_date, scored)
 
         commit_paths = [str(paths.matches_path(run_date)), str(paths.seen_path())]
+        # company_signals is a separate, non-lane-keyed watchlist - commit it
+        # alongside matches when it ran, but never touch _update_seen or
+        # LANES for it: signals must resurface every run until acted on.
+        if paths.signals_path(run_date).exists():
+            commit_paths.append(str(paths.signals_path(run_date)))
         _git("add", "--", *commit_paths)
         # Scope the diff check and the commit to exactly these two paths, so
         # any unrelated staged changes already sitting in the index (e.g.

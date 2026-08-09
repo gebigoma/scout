@@ -16,8 +16,8 @@ import json
 import sys
 from datetime import date
 
-from pipeline import (alert, classify, dedupe, digest, fetch, fetch_ats,
-                      lanes, manifest, normalize, paths, prefilter, score)
+from pipeline import (alert, classify, company_signals, dedupe, digest, fetch,
+                      fetch_ats, lanes, manifest, normalize, paths, prefilter, score)
 
 
 def load_checkpoint(run_date: str, stage: str):
@@ -68,6 +68,8 @@ def main():
         dedupe_cp = stage_output("dedupe", dedupe.run, prefilter_cp)
         classify_cp = stage_output("classify", classify.run, dedupe_cp)
         score_cp = stage_output("score", score.run, classify_cp)
+        signals_cp = (stage_output("company_signals", company_signals.run, fetch_ats_cp)
+                     if fetch_ats_cp else None)
         digest_cp = stage_output("digest", digest.run, dedupe_cp, score_cp, active)
     except Exception as e:
         print(f"Pipeline failed: {e}", file=sys.stderr)
