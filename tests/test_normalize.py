@@ -232,6 +232,31 @@ class NormalizeAtsTest(unittest.TestCase):
             self._companies_results("greenhouse", fixtures.GREENHOUSE_JOB, headcount=None))
         self.assertIsNone(listing["headcount"])
 
+    def test_greenhouse_location_name_is_extracted_as_free_text(self):
+        job = {**fixtures.GREENHOUSE_JOB, "location": {"name": "Australia (Remote)"}}
+        listing, = normalize._normalize_ats(self._companies_results("greenhouse", job))
+        self.assertEqual(listing["location_text"], "Australia (Remote)")
+        self.assertEqual(listing["location_country_code"], "")
+
+    def test_greenhouse_missing_location_defaults_to_empty(self):
+        listing, = normalize._normalize_ats(
+            self._companies_results("greenhouse", fixtures.GREENHOUSE_JOB))
+        self.assertEqual(listing["location_text"], "")
+
+    def test_ashby_joins_primary_and_secondary_locations(self):
+        job = {**fixtures.ASHBY_JOB, "location": "United Kingdom",
+               "secondaryLocations": [{"location": "Ireland"}, {"location": "Poland"}]}
+        listing, = normalize._normalize_ats(self._companies_results("ashby", job))
+        self.assertEqual(listing["location_text"], "United Kingdom; Ireland; Poland")
+        self.assertEqual(listing["location_country_code"], "")
+
+    def test_lever_country_code_is_extracted_directly(self):
+        job = {**fixtures.LEVER_JOB, "country": "IN",
+               "categories": {"location": "Bengaluru"}}
+        listing, = normalize._normalize_ats(self._companies_results("lever", job))
+        self.assertEqual(listing["location_country_code"], "IN")
+        self.assertEqual(listing["location_text"], "Bengaluru")
+
 
 class NormalizeRunTest(PipelineTestCase):
     def _fetch_checkpoint(self, **sources):

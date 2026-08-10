@@ -8,7 +8,18 @@ from . import logging_setup, manifest, paths
 
 
 def _strip_html(text: str) -> str:
-    return html.unescape(re.sub("<[^<]+?>", " ", text or ""))
+    """Some sources (Greenhouse's `content` field) return HTML that's itself
+    entity-escaped, so a tag only becomes literal `<...>` after unescaping -
+    stripping first (the old order) leaves those tags untouched and they
+    survive straight into the snippet. Unescape to a fixpoint first, capped
+    since this is untrusted external text, then strip."""
+    text = text or ""
+    for _ in range(5):
+        unescaped = html.unescape(text)
+        if unescaped == text:
+            break
+        text = unescaped
+    return re.sub("<[^<]+?>", " ", text)
 
 
 def _one_line(text: str) -> str:
@@ -161,6 +172,28 @@ NORMALIZERS = {
 }
 
 
+def _ats_location(ats: str, job: dict) -> dict:
+    """Location signal per ATS, kept as raw text/code - eligibility judgment
+    (which countries are workable) lives in prefilter.py, not here.
+
+    lever's `country` is an ISO-3166 alpha-2 code, the one reliably
+    machine-checkable signal of the three ATSes - greenhouse and ashby only
+    give free-text place names, checked against prefilter's country-name
+    list instead."""
+    if ats == "greenhouse":
+        return {"location_text": (job.get("location") or {}).get("name", ""),
+                "location_country_code": ""}
+    if ats == "ashby":
+        parts = [job.get("location", "")]
+        parts += [sl.get("location", "") for sl in job.get("secondaryLocations", [])]
+        return {"location_text": "; ".join(p for p in parts if p),
+                "location_country_code": ""}
+    # lever
+    categories = job.get("categories") or {}
+    return {"location_text": categories.get("location", ""),
+            "location_country_code": job.get("country", "") or ""}
+
+
 def _normalize_ats(companies_results: dict) -> list:
     result = []
     for info in companies_results.values():
@@ -190,6 +223,7 @@ def _normalize_ats(companies_results: dict) -> list:
                 "tags": [],
                 "lane": "first_tpm",
                 "headcount": company.get("headcount"),
+                **_ats_location(company["ats"], job),
             })
     return result
 
