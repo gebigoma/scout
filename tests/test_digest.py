@@ -160,6 +160,20 @@ class UnpushedCommitCountTest(PipelineTestCase):
         self.assertEqual(digest._unpushed_commit_count(), 0)
 
 
+class CurrentBranchTest(PipelineTestCase):
+    def test_reports_the_checked_out_branch(self):
+        init_repo_with_remote(self.project_dir)
+        self.assertEqual(digest._current_branch(), "main")
+
+    def test_detached_head_reports_no_branch(self):
+        init_repo_with_remote(self.project_dir)
+        git("checkout", "--detach", cwd=self.project_dir)
+        self.assertEqual(digest._current_branch(), "")
+
+    def test_a_non_repo_reports_no_branch(self):
+        self.assertEqual(digest._current_branch(), "")
+
+
 class DigestRunTest(PipelineTestCase):
     def setUp(self):
         super().setUp()
@@ -198,6 +212,48 @@ class DigestRunTest(PipelineTestCase):
         self.assertEqual(checkpoint["matches"], 0)
         self.assertTrue(paths.matches_path(RUN_DATE).exists())
         self.assertTrue(checkpoint["committed"])
+
+    def test_a_feature_branch_checkout_is_never_published_to(self):
+        """The scheduled job runs against whatever is checked out. Publishing
+        from a feature branch is what produced the two reverted "Weekly
+        matches" commits, so it must write the digest and stop there."""
+        git("checkout", "-b", "some-feature", cwd=self.project_dir)
+        before = git("rev-parse", "HEAD", cwd=self.project_dir)
+
+        checkpoint = self._run([fixtures.scored("https://x/1", 88)])
+
+        self.assertFalse(checkpoint["committed"])
+        self.assertFalse(checkpoint["pushed"])
+        self.assertEqual(checkpoint["publish_skipped"], "some-feature")
+        self.assertEqual(git("rev-parse", "HEAD", cwd=self.project_dir), before)
+
+    def test_the_digest_is_still_written_when_publishing_is_skipped(self):
+        """Skipping the commit shouldn't throw away the run's actual output."""
+        git("checkout", "-b", "some-feature", cwd=self.project_dir)
+        self._run([fixtures.scored("https://x/1", 88)])
+        self.assertIn("https://x/1", paths.matches_path(RUN_DATE).read_text())
+
+    def test_skipping_the_commit_raises_an_alert(self):
+        """Silence here would look identical to a genuinely quiet week."""
+        git("checkout", "-b", "some-feature", cwd=self.project_dir)
+        with mock.patch.object(digest.alert, "send_publish_skipped_alert") as alert_mock:
+            self._run([fixtures.scored("https://x/1", 88)])
+        alert_mock.assert_called_once_with(RUN_DATE, "some-feature")
+
+    def test_a_detached_head_is_not_published_to_either(self):
+        git("checkout", "--detach", cwd=self.project_dir)
+        checkpoint = self._run([fixtures.scored("https://x/1", 88)])
+        self.assertFalse(checkpoint["committed"])
+        self.assertEqual(checkpoint["publish_skipped"], "a detached HEAD")
+
+    def test_unrelated_local_commits_on_main_are_not_swept_into_the_push(self):
+        """A bare `git push` sends every unpushed commit on the branch. The
+        digest push must carry the digest commit and whatever was already
+        deliberately on main - never decide the destination implicitly."""
+        checkpoint = self._run([fixtures.scored("https://x/1", 88)])
+        self.assertTrue(checkpoint["pushed"])
+        self.assertEqual(git("rev-parse", "HEAD", cwd=self.project_dir),
+                         git("rev-parse", "main", cwd=self.remote))
 
     def test_rerunning_an_unchanged_date_commits_nothing(self):
         self._run([fixtures.scored("u1", 88)])

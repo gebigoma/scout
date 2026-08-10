@@ -149,3 +149,35 @@ scoped commit, and pushing a commit stranded by a failed push — so a
 regression shows up as a named failing test rather than as a quiet week with
 no matches. GitHub Actions runs the suite on every push and PR against Python
 3.9 (the macOS system Python the scheduled job uses), 3.11, and 3.13.
+
+## Repo hygiene
+
+The scheduled job commits and pushes from this working copy, which is also
+the copy the repo gets developed in. That overlap is the source of most of
+the mess in this repo's history — two `Weekly matches` commits landed on
+feature branches and had to be reverted. Three layers guard it now:
+
+**`digest` refuses to publish off main.** It renders `matches/<date>.md`
+either way, but only commits when `HEAD` is on `PUBLISH_BRANCH`, and pushes
+by explicit refspec rather than letting `push.default` choose. A skipped
+publish raises an ntfy alert, because otherwise it looks exactly like a
+quiet week.
+
+**Git hooks**, versioned in `.githooks/` — run once per clone:
+
+```
+sh scripts/install-hooks.sh
+```
+
+`pre-commit` blocks oversized files, generated output (`data/runs/`,
+`logs/`), and unresolved conflict markers. `pre-push` additionally checks
+the branch name and runs the suite, and lets only digest commits go
+straight to main — everything else needs a PR. `--no-verify` bypasses both.
+
+**CI** re-runs the same checks via `scripts/hygiene.py`, so a bypassed or
+uninstalled hook still gets caught before merge. The rules live in that one
+module precisely so the hooks and CI can't drift apart.
+
+A `Stop` hook in `.claude/settings.json` also warns when a Claude Code
+session ends with the repo off main or dirty — the state that makes the
+following Monday's run skip publishing.

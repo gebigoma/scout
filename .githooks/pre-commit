@@ -1,0 +1,4 @@
+#!/bin/sh
+# Installed by scripts/install-hooks.sh (sets core.hooksPath to .githooks).
+# Checks live in scripts/hygiene.py so CI enforces exactly the same rules.
+exec python3 "$(git rev-parse --show-toplevel)/scripts/hygiene.py" staged

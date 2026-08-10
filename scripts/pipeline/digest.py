@@ -3,7 +3,14 @@ score checkpoint, updates data/seen.json, and commits+pushes the result."""
 import json
 import subprocess
 
-from . import lanes, logging_setup, manifest, paths
+from . import alert, lanes, logging_setup, manifest, paths
+
+# The scheduled job runs against whatever the working copy happens to be
+# checked out on, which for a repo that's also actively developed in is not
+# reliably main. Publishing from a feature branch put two "Weekly matches"
+# commits on branches that then had to be reverted, so the branch is checked
+# rather than assumed.
+PUBLISH_BRANCH = "main"
 
 # One top-level heading per lane, so a paused lane renders no heading at all
 # and it's obvious at a glance which matches came from which lane.
@@ -112,6 +119,15 @@ def _git(*args) -> str:
                            capture_output=True, text=True).stdout.strip()
 
 
+def _current_branch() -> str:
+    """The checked-out branch name, or "" when detached or not a repo. Both
+    non-branch states are treated the same way by the caller: don't publish."""
+    try:
+        return _git("symbolic-ref", "--quiet", "--short", "HEAD")
+    except subprocess.CalledProcessError:
+        return ""
+
+
 def _unpushed_commit_count() -> int:
     """How many commits are on HEAD but not on its upstream. Used instead of
     the index state to decide whether a push is needed: if a previous run
@@ -149,33 +165,48 @@ def run(run_date: str, dedupe_checkpoint: dict, score_checkpoint: dict,
         # LANES for it: signals must resurface every run until acted on.
         if paths.signals_path(run_date).exists():
             commit_paths.append(str(paths.signals_path(run_date)))
-        _git("add", "--", *commit_paths)
-        # Scope the diff check and the commit to exactly these two paths, so
-        # any unrelated staged changes already sitting in the index (e.g.
-        # from other in-progress work) are never swept into this commit.
-        has_staged_changes = subprocess.run(
-            ["git", "diff", "--cached", "--quiet", "--", *commit_paths],
-            cwd=paths.PROJECT_DIR,
-        ).returncode != 0
-        if has_staged_changes:
-            _git("commit", "-m", f"Weekly matches: {run_date}", "--", *commit_paths)
+        branch = _current_branch()
+        if branch != PUBLISH_BRANCH:
+            # Leave the rendered files on disk - the digest is still the useful
+            # output of the run - but don't create a commit that lands on
+            # whatever feature branch was left checked out and has to be
+            # reverted afterwards.
+            committed = pushed = False
+            publish_skipped = branch or "a detached HEAD"
+            alert.send_publish_skipped_alert(run_date, publish_skipped)
+        else:
+            publish_skipped = None
+            _git("add", "--", *commit_paths)
+            # Scope the diff check and the commit to exactly these two paths, so
+            # any unrelated staged changes already sitting in the index (e.g.
+            # from other in-progress work) are never swept into this commit.
+            has_staged_changes = subprocess.run(
+                ["git", "diff", "--cached", "--quiet", "--", *commit_paths],
+                cwd=paths.PROJECT_DIR,
+            ).returncode != 0
+            if has_staged_changes:
+                _git("commit", "-m", f"Weekly matches: {run_date}", "--", *commit_paths)
 
-        unpushed = _unpushed_commit_count()
-        if unpushed:
-            _git("push")
-        committed = has_staged_changes
-        pushed = bool(unpushed)
+            unpushed = _unpushed_commit_count()
+            if unpushed:
+                # Name the destination explicitly instead of a bare `git push`,
+                # which would follow push.default and send every unpushed commit
+                # on the branch wherever main happens to track.
+                _git("push", "origin", f"HEAD:{PUBLISH_BRANCH}")
+            committed = has_staged_changes
+            pushed = bool(unpushed)
     except Exception as e:
         manifest.stage_failed(run_date, "digest", str(e))
         raise
 
     checkpoint = {"matches": len(scored), "rejected": len(rejected),
-                  "committed": committed, "pushed": pushed}
+                  "committed": committed, "pushed": pushed,
+                  "publish_skipped": publish_skipped}
     paths.atomic_write_json(paths.checkpoint_path(run_date, "digest"), checkpoint)
 
     logging_setup.log(logger, "digest", "wrote digest", matches=len(scored),
                        rejected_below_floor=len(rejected), committed=committed,
-                       pushed=pushed)
+                       pushed=pushed, publish_skipped=publish_skipped)
     manifest.stage_succeeded(run_date, "digest", matches=len(scored),
                               classify_disagreements=len(rejected),
                               committed=committed, pushed=pushed)
