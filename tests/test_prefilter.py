@@ -75,6 +75,47 @@ class EvaluateTest(unittest.TestCase):
         self.assertFalse(result["passes"])
         self.assertFalse(result["near_miss"])
 
+    def test_a_role_fit_match_tied_to_a_specific_non_us_country_is_dropped(self):
+        """The Armada case: role-fit passes tier2, but location.name says
+        "Australia (Remote)" - not workable, so it's dropped regardless."""
+        text = "We are hiring our first TPM to run engineering programs."
+        result = prefilter.evaluate(_first_tpm_listing(
+            text, location_text="Australia (Remote)", location_country_code=""))
+        self.assertFalse(result["passes"])
+        self.assertTrue(result["role_fit"])
+        self.assertFalse(result["us_eligible"])
+
+    def test_a_role_fit_match_with_us_location_text_passes(self):
+        text = "We are hiring our first TPM to run engineering programs."
+        result = prefilter.evaluate(_first_tpm_listing(
+            text, location_text="United States (Remote)", location_country_code=""))
+        self.assertTrue(result["passes"])
+
+    def test_a_role_fit_match_with_no_location_data_passes(self):
+        """Most listings won't carry a location signal at all - absence isn't
+        treated as disqualifying, only an explicit non-US signal is."""
+        text = "We are hiring our first TPM to run engineering programs."
+        result = prefilter.evaluate(_first_tpm_listing(text))
+        self.assertTrue(result["passes"])
+
+    def test_lever_non_us_country_code_fails_even_with_no_matching_location_text(self):
+        """lever's ISO-3166 country code is checked directly and takes
+        priority - it doesn't depend on the country name list."""
+        text = "We are hiring our first TPM to run engineering programs."
+        result = prefilter.evaluate(_first_tpm_listing(
+            text, location_text="Bengaluru", location_country_code="IN"))
+        self.assertFalse(result["passes"])
+        self.assertFalse(result["us_eligible"])
+
+    def test_conflicting_location_signals_are_dropped_not_reconciled(self):
+        """A US country code alongside free text naming another country is
+        still dropped - any non-US signal disqualifies, per the Armada case
+        where Greenhouse's own fields disagreed with each other."""
+        text = "We are hiring our first TPM to run engineering programs."
+        result = prefilter.evaluate(_first_tpm_listing(
+            text, location_text="Australia (Remote)", location_country_code="US"))
+        self.assertFalse(result["passes"])
+
 
 class PrefilterRunTest(PipelineTestCase):
     def test_fractional_lane_listings_bypass_filtering_entirely(self):
