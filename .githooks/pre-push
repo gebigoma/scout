@@ -1,0 +1,30 @@
+#!/bin/sh
+# Installed by scripts/install-hooks.sh (sets core.hooksPath to .githooks).
+#
+# git feeds this hook one line per ref being pushed on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+set -e
+root="$(git rev-parse --show-toplevel)"
+zero="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+	[ "$local_sha" = "$zero" ] && continue  # branch deletion
+
+	branch="${local_ref#refs/heads/}"
+	python3 "$root/scripts/hygiene.py" branch "$branch"
+
+	# Direct pushes to main are reserved for the scheduled digest job.
+	if [ "$remote_ref" = "refs/heads/main" ]; then
+		if [ "$remote_sha" = "$zero" ]; then
+			range="$local_sha"
+		else
+			range="$remote_sha..$local_sha"
+		fi
+		python3 "$root/scripts/hygiene.py" push-to-main "$range"
+	fi
+done
+
+# The suite is stdlib-only and runs in seconds; a red push wastes a CI cycle
+# and, on main, publishes a broken pipeline to the scheduled job.
+echo "pre-push: running tests..."
+python3 -m unittest discover -s tests -t "$root" -q

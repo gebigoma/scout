@@ -12,6 +12,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Same rules the local pre-commit/pre-push hooks enforce, via the same
+  # module - so a `--no-verify` bypass or an uninstalled hook still gets
+  # caught before merge rather than landing in history.
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tracked files
+        run: python3 scripts/hygiene.py tracked
+
+      - name: Check branch name
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/hygiene.py branch "${{ github.head_ref }}"
+
+      - name: Check hooks are committed executable
+        # A non-executable hook is silently skipped by git, which looks
+        # exactly like a passing repo.
+        run: |
+          for hook in .githooks/*; do
+            mode=$(git ls-files --stage "$hook" | cut -d' ' -f1)
+            [ "$mode" = "100755" ] || {
+              echo "$hook is mode $mode, expected 100755."
+              echo "Fix with: git update-index --chmod=+x $hook"
+              exit 1
+            }
+          done
+
   unittest:
     runs-on: ubuntu-latest
     strategy:

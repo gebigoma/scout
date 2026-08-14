@@ -27,6 +27,15 @@ def send_failure_alert(run_date: str, error_message: str) -> None:
             title="scout weekly run failed", priority="high")
 
 
+def send_publish_skipped_alert(run_date: str, branch: str) -> None:
+    """The digest was written but not committed, because the repo was parked
+    off the publish branch. High priority: the run silently produced nothing
+    durable, and the working tree is now dirty on someone's feature branch."""
+    _notify(f"scout run {run_date} wrote the digest but did not commit: "
+            f"repo is on '{branch}', not main. Check out main and re-run.",
+            title="scout digest not published", priority="high")
+
+
 def send_success_heartbeat(run_date: str, manifest: dict) -> None:
     """Notify on success too, quietly.
 
