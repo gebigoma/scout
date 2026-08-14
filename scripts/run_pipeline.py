@@ -17,7 +17,8 @@ import sys
 from datetime import date
 
 from pipeline import (alert, classify, company_signals, dedupe, digest, fetch,
-                      fetch_ats, lanes, manifest, normalize, paths, prefilter, score)
+                      fetch_ats, lanes, manifest, normalize, paths, prefilter,
+                      retention, runlock, score)
 
 
 def load_checkpoint(run_date: str, stage: str):
@@ -58,6 +59,18 @@ def main():
         return run_fn(run_date, *inputs)
 
     try:
+        with runlock.single_run():
+            run_stages(run_date, stage_output)
+    except runlock.AlreadyRunning as e:
+        # Not a pipeline failure - the other run is presumably doing the
+        # work fine. Exit quietly rather than firing a failure alert that
+        # would read as "the weekly run broke".
+        print(f"Not starting: {e}", file=sys.stderr)
+        sys.exit(0)
+
+
+def run_stages(run_date, stage_output):
+    try:
         active = lanes.active_lanes()
         fetch_cp = (stage_output("fetch", fetch.run) if lanes.FRACTIONAL in active
                    else {"sources": {}})
@@ -82,6 +95,19 @@ def main():
     alert.send_success_heartbeat(run_date, final)
     print(f"Pipeline succeeded: {digest_cp['matches']} matches, "
           f"committed={digest_cp['committed']}, pushed={digest_cp['pushed']}")
+
+    # After success, not before: a failed run's checkpoints are what you
+    # debug against, and a sweep that ran first would delete the previous
+    # run's evidence before this one had proven itself. A sweep that fails
+    # must not turn a published digest into a failed run, so it never
+    # propagates - worst case the disk stays large for another week.
+    try:
+        swept = retention.sweep(run_date)
+        if swept["runs"] or swept["raw"]:
+            print(f"Pruned {len(swept['runs'])} run dir(s), "
+                  f"{len(swept['raw'])} raw payload(s)")
+    except OSError as e:
+        print(f"Retention sweep skipped: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
