@@ -94,6 +94,27 @@ than fatal. Structured logs go to `logs/<date>.jsonl` (gitignored). On
 failure, a push notification goes out via ntfy.sh (topic set via the
 `NTFY_TOPIC` env var in the launchd job, not in this repo).
 
+Only one run executes at a time, enforced by an `flock` on `logs/run.lock`.
+launchd already won't start a second copy of a job that's still running, so
+this is really about the manual case: a hand-started run while the scheduled
+one is mid-flight would otherwise write the same checkpoints and race it to
+`git commit`, and the loser dies on `index.lock` with an error that has
+nothing to do with the real problem. A second run exits 0 with a message
+rather than raising — it isn't a failure, and it shouldn't alert like one.
+`flock` rather than a pidfile because the kernel releases it however the
+process dies, which on a laptop that sleeps mid-run matters.
+
+After a successful run, `retention.sweep` prunes all but the newest
+`RETAIN_RUNS` (8) of `data/runs/<date>/` and `data/raw/<date>.json`. One
+first-TPM run writes ~27MB of ATS payloads, so unpruned this grew about
+1.4GB/year of gitignored scratch. Retention counts *runs*, not days,
+because this pipeline runs on a laptop that can miss weeks — an
+age-in-days rule would delete the last few real runs for having aged out
+while nothing ran, which is exactly when you still want them. The sweep
+runs after publishing (a failed run's checkpoints are what you debug
+against) and never propagates its own errors, since a full disk shouldn't
+turn a published digest into a failed run.
+
 A local `launchd` job (`~/Library/LaunchAgents/com.scout.weeklyfetch.plist`)
 runs the pipeline every Monday morning on this machine. Fetching is part of
 that weekly run, which costs recall on the fractional lane's two sources
