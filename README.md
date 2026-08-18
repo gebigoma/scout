@@ -4,17 +4,16 @@
 
 I'm a TPM looking for roles where I'd be the first program manager at a startup. Reading job boards by hand didn't scale and I kept missing things, so I built a pipeline that does the reading: it pulls listings weekly, classifies them against written criteria, scores the matches, and commits a digest to this repo. [Sample digest →](https://github.com/gebigoma/scout/blob/main/matches/2026-08-03.md)
 
-Most of what's below is about the parts that broke. It runs unattended on a laptop that sleeps, misses weeks, and gets developed in the same working copy it publishes from, and nearly every design decision here is a response to something that went wrong under one of those conditions.
+Most of what's below is about the parts that broke. It runs unattended on a laptop that sleeps, misses weeks, and gets developed in the same working copy it publishes from, and nearly every design decision here is a response to something that went wrong under one of those conditions. Weeks with no matches are published as zeros rather than skipped — an honest empty week and a silently broken run should not look the same.
 
-A weekly workflow that finds job listings across two lanes and writes the
-matches to this repo:
+Two lanes:
 
-- **fractional** — senior Technical Program Management, Agentic AI Engineer,
-  and similar roles, explicitly fractional/contract/part-time/interim, from
-  public job boards.
 - **first_tpm** — full-time roles where the hire would be the first (or
   near-first) Technical Program Manager at a startup, sourced directly from
   VC-portfolio companies' applicant-tracking-system endpoints.
+- **fractional** — senior Technical Program Management, Agentic AI Engineer,
+  and similar roles, explicitly fractional/contract/part-time/interim, from
+  public job boards.
 
 Both lanes run by default every week; see [Lanes](#lanes) below to run just
 one.
