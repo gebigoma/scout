@@ -32,8 +32,17 @@ EXEMPT_BRANCHES = frozenset({"main"})
 # The weekly job commits straight to main by design. Every other change goes
 # through a PR, and a digest commit is recognisable by both its subject and
 # the fact that it only ever touches published output.
+#
+# The signals clause mirrors the matches one because company_signals writes a
+# dated file to a top-level directory (paths.signals_path), exactly as digest
+# does for matches. An earlier `data/signals[\w.-]*\.md` never matched: the
+# artifact isn't under data/, and `[\w.-]` excludes `/`, so no dated file in a
+# directory could match it either. That cost the 2026-08-17 run - digest
+# committed the signals file, pre-push rejected the commit as "not a digest
+# commit", and the push failed after the matches file had already been
+# rendered and committed.
 DIGEST_SUBJECT = "Weekly matches:"
-DIGEST_PATH_PATTERN = re.compile(r"^(matches/[\d-]+\.md|data/seen\.json|data/signals[\w.-]*\.md)$")
+DIGEST_PATH_PATTERN = re.compile(r"^(matches/[\d-]+\.md|data/seen\.json|signals/[\d-]+\.md)$")
 
 CONFLICT_MARKER = re.compile(r"^(<{7}|={7}|>{7})(\s|$)")
 

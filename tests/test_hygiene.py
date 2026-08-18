@@ -105,6 +105,23 @@ class MainPushTest(unittest.TestCase):
                     ["matches/2026-08-10.md", "data/seen.json"])]
         self.assertEqual(hygiene.check_main_push(commits), [])
 
+    def test_a_digest_commit_carrying_signals_may_go_straight_to_main(self):
+        """company_signals writes signals/<date>.md and digest commits it
+        alongside the matches file. The 2026-08-17 run failed here: the
+        pattern only allowed data/signals*.md, so the push was rejected as
+        "not a digest commit" after the commit had already been made."""
+        commits = [("Weekly matches: 2026-08-17",
+                    ["matches/2026-08-17.md", "data/seen.json",
+                     "signals/2026-08-17.md"])]
+        self.assertEqual(hygiene.check_main_push(commits), [])
+
+    def test_a_signals_path_outside_the_dated_convention_is_blocked(self):
+        """Only dated signals files are published output - anything else under
+        signals/ is a code or config change and needs a PR."""
+        commits = [("Weekly matches: 2026-08-17",
+                    ["matches/2026-08-17.md", "signals/render.py"])]
+        self.assertEqual(len(hygiene.check_main_push(commits)), 1)
+
     def test_ordinary_work_pushed_to_main_is_blocked(self):
         commits = [("Fix greenhouse posted date field", ["scripts/pipeline/normalize.py"])]
         self.assertEqual(len(hygiene.check_main_push(commits)), 1)
