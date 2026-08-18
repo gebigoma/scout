@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/gebigoma/scout/actions/workflows/tests.yml/badge.svg)](https://github.com/gebigoma/scout/actions/workflows/tests.yml)
 
-I'm a TPM looking for roles where I'd be the first program manager at a startup. Reading job boards by hand didn't scale and I kept missing things, so I built a pipeline that does the reading: it pulls listings weekly, classifies them against written criteria, scores the matches, and commits a digest to this repo. [Sample digest →]([https://www.example.com](https://github.com/gebigoma/scout/blob/main/matches/2026-08-03.md))
+I'm a TPM looking for roles where I'd be the first program manager at a startup. Reading job boards by hand didn't scale and I kept missing things, so I built a pipeline that does the reading: it pulls listings weekly, classifies them against written criteria, scores the matches, and commits a digest to this repo. [Sample digest →](https://www.example.com](https://github.com/gebigoma/scout/blob/main/matches/2026-08-03.md))
 
 Most of what's below is about the parts that broke. It runs unattended on a laptop that sleeps, misses weeks, and gets developed in the same working copy it publishes from, and nearly every design decision here is a response to something that went wrong under one of those conditions.
 
