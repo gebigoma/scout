@@ -129,12 +129,17 @@ class MainPushTest(unittest.TestCase):
         self.assertNotRegex(relative(paths.signals_path("2026-08-17")),
                             hygiene.DIGEST_PATH_PATTERN)
 
-    def test_signals_and_the_company_list_are_never_committable(self):
-        """Both name the companies being watched, in a public repo. gitignore
-        alone would let `git add -f` through."""
-        problems = hygiene.check_never_commit(
-            ["signals/2026-08-17.md", "data/companies.csv"])
-        self.assertEqual(len(problems), 2)
+    def test_the_private_company_files_are_never_committable(self):
+        """Each names specific companies being watched or applied to, in a
+        public repo. gitignore alone would let `git add -f` through."""
+        private = ["signals/2026-08-17.md", "data/companies.csv",
+                   "data/known_good.csv"]
+        self.assertEqual(len(hygiene.check_never_commit(private)), len(private))
+
+    def test_other_hand_maintained_data_is_still_committable(self):
+        """The rule is about naming companies, not about living under data/ -
+        seen.json is hand-adjacent published output and must stay allowed."""
+        self.assertEqual(hygiene.check_never_commit(["data/seen.json"]), [])
 
     def test_ordinary_work_pushed_to_main_is_blocked(self):
         commits = [("Fix greenhouse posted date field", ["scripts/pipeline/normalize.py"])]

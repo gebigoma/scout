@@ -107,12 +107,26 @@ status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.json
 - **`data/companies.csv` is hand-maintained** (`name,ats,token,headcount,source`)
   and drives the first_tpm lane's fetch. An empty `headcount` means unknown, not
   zero — never guess it.
-- **`signals/`, `data/companies.csv`, and `data/known_good.csv` are private**,
+- **`data/known_good.csv` is the hand-kept recall log.** The pipeline can
+  measure precision from what `digest` publishes, but it has no record of roles
+  it never saw — recall is only observable from outside, so it gets tracked by
+  hand. One row per role found manually that scout *should* have surfaced (a
+  true positive by `ROLE_CRITERIA`, not everything worth a click). The
+  `missed_at` column names the stage that dropped it — `universe` / `ats` /
+  `prefilter` / `classify` / `score` — which is what turns "we're leaking" into
+  "we're leaking *here*". Two gaps it has already caught, both upstream of any
+  filtering logic: `companies.csv` is seeded from VC-firm portfolio pages, so an
+  angel-funded company appears on none of them and never enters the universe at
+  all; and `fetch_ats` covers only Greenhouse, Ashby and Lever, so a company on
+  Workable (or any fourth ATS) 404s and is skipped as "not on this ATS".
+- **`signals/`, `data/companies.csv` and `data/known_good.csv` are private**,
   gitignored *and* in `hygiene.NEVER_COMMIT` so `git add -f` can't sneak them
-  back. This is a public repo and all three name the companies being watched — the signals table ranks them
-  by how close they look to opening a req. The stages still run and still write
-  the files locally; only publishing is off. A fresh clone has neither, which is
-  why nothing in the suite reads the real ones.
+  back. This is a public repo and each names specific companies — being watched,
+  or being applied to. The stages still run and still write their files locally;
+  only publishing is off. A fresh clone has none of the three, which is why
+  nothing in the suite reads the real ones. Being hand-maintained rather than
+  generated is *not* the test for whether something can be committed: the test
+  is whether it names companies.
 - **`digest` commits exactly `matches/<date>.md` and `data/seen.json`**, and
   `hygiene.DIGEST_PATH_PATTERN` must match that list exactly. When it didn't,
   the 2026-08-17 run rendered and committed its digest, then had the push
@@ -128,7 +142,8 @@ The scheduled job commits from this same working copy, so leaving the repo off
 
 Hygiene rules live in `scripts/hygiene.py` alone, shared by `.githooks/` and CI
 so the two can't drift: no files over 2MB, no generated or private output
-(`data/runs/`, `logs/`, `data/raw/`, `signals/`, `data/companies.csv`), no
+(`data/runs/`, `logs/`, `data/raw/`, `signals/`, `data/companies.csv`,
+`data/known_good.csv`), no
 conflict markers, branch names must match
 `(feat|fix|chore|docs|test|refactor|ci)/slug`, and only digest commits should
 land on `main` directly.
