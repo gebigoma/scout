@@ -43,5 +43,31 @@ class LoadCompaniesTest(PipelineTestCase):
         self.assertEqual(len(companies.load_companies()), 3)
 
 
+class CompaniesExampleTest(unittest.TestCase):
+    """The committed template is the only description of this schema a fresh
+    clone gets, since the real companies.csv is private. Load it with the real
+    loader so it can't drift from what the loader accepts - a template that
+    parses to nothing would send someone straight back to the silent-empty
+    failure it exists to prevent."""
+
+    def _rows(self):
+        # Deliberately not PipelineTestCase: this reads the real committed
+        # file, not a temp-dir copy.
+        from pipeline import paths
+        return companies.load_companies(
+            paths.PROJECT_DIR / "data" / "companies.example.csv")
+
+    def test_the_template_parses_and_is_not_empty(self):
+        self.assertTrue(self._rows())
+
+    def test_the_template_demonstrates_every_supported_ats(self):
+        self.assertEqual({c["ats"] for c in self._rows()}, companies.ATS_CHOICES)
+
+    def test_the_template_demonstrates_unknown_headcount(self):
+        """Blank headcount is the column's one real trap - it means unknown,
+        never 0 - so the template has to show it."""
+        self.assertIn(None, [c["headcount"] for c in self._rows()])
+
+
 if __name__ == "__main__":
     unittest.main()

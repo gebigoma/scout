@@ -126,7 +126,23 @@ status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.json
   only publishing is off. A fresh clone has none of the three, which is why
   nothing in the suite reads the real ones. Being hand-maintained rather than
   generated is *not* the test for whether something can be committed: the test
-  is whether it names companies.
+  is whether it names companies. `data/companies.example.csv` and
+  `data/known_good.example.csv` are committed in their place — same schema,
+  invented rows — and `.example.csv` escapes both the gitignore patterns and
+  `NEVER_COMMIT`, which match the real filenames exactly.
+- **A missing or unpopulated `data/companies.csv` is silent, and still is.**
+  `companies.load_companies` returns `[]` rather than raising, so a clone
+  without it runs the first_tpm lane over zero companies and publishes "No
+  matches this week" — indistinguishable from an honest quiet week. The
+  committed template does *not* fix this: its tokens are invented, so every row
+  404s and is skipped as "not on this ATS", producing the same empty result by
+  a different route. The template only makes the schema discoverable so the
+  list can be populated for real. Closing the gap properly means distinguishing
+  "no company list" from "list yielded nothing" and surfacing it in the
+  manifest — currently unimplemented, and worth doing before trusting a quiet
+  week from this lane. `CompaniesExampleTest` loads the template through the
+  real loader so it can't drift from the schema, which is a smaller claim: it
+  keeps the documentation honest, not the run.
 - **`digest` commits exactly `matches/<date>.md` and `data/seen.json`**, and
   `hygiene.DIGEST_PATH_PATTERN` must match that list exactly. When it didn't,
   the 2026-08-17 run rendered and committed its digest, then had the push
