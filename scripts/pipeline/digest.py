@@ -159,12 +159,12 @@ def run(run_date: str, dedupe_checkpoint: dict, score_checkpoint: dict,
         # scoring should stay eligible for reconsideration later.
         _update_seen(run_date, scored)
 
+        # company_signals still renders signals/<date>.md, but it is never
+        # committed: the watchlist names which companies are being watched and
+        # why, which is local-only by decision. signals/ is gitignored and
+        # hygiene.NEVER_COMMIT blocks it, so this list must stay exactly
+        # matches + seen.
         commit_paths = [str(paths.matches_path(run_date)), str(paths.seen_path())]
-        # company_signals is a separate, non-lane-keyed watchlist - commit it
-        # alongside matches when it ran, but never touch _update_seen or
-        # LANES for it: signals must resurface every run until acted on.
-        if paths.signals_path(run_date).exists():
-            commit_paths.append(str(paths.signals_path(run_date)))
         branch = _current_branch()
         if branch != PUBLISH_BRANCH:
             # Leave the rendered files on disk - the digest is still the useful
