@@ -16,9 +16,15 @@ from urllib.error import HTTPError, URLError
 from . import retry
 from .fetch import USER_AGENT as _FETCH_USER_AGENT
 
-# EDGAR blocks generic user agents and wants real contact info - stricter
-# than the ATS endpoints fetch_ats.py hits with the bare fetch.USER_AGENT.
-USER_AGENT = f"{_FETCH_USER_AGENT}; contact tuna.park@gmail.com"
+# EDGAR blocks generic user agents and wants real contact info - stricter than
+# the ATS endpoints fetch_ats.py hits with the bare fetch.USER_AGENT. The
+# address comes from the environment rather than the source: this repo is
+# public, and a contact address committed here is a scrapeable one. EDGAR will
+# rate-limit or block the placeholder, which is the intended failure - it
+# surfaces as an HTTP error from a module nothing in the pipeline calls, rather
+# than silently attributing the traffic to whoever's address was hardcoded.
+EDGAR_CONTACT = os.environ.get("SCOUT_EDGAR_CONTACT", "set-SCOUT_EDGAR_CONTACT@example.com")
+USER_AGENT = f"{_FETCH_USER_AGENT}; contact {EDGAR_CONTACT}"
 
 FETCH_ERRORS = (URLError, HTTPError, socket.timeout, TimeoutError, json.JSONDecodeError)
 

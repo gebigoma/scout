@@ -139,11 +139,17 @@ debugging:
 SCOUT_LANES=first_tpm python3 scripts/run_pipeline.py
 ```
 
-`data/companies.csv` (not committed — hand-maintained, see
-[`docs/first-tpm-lane.md`](./docs/first-tpm-lane.md)) drives the first_tpm
-lane's fetch: one row per portfolio company, columns
-`name,ats,token,headcount,source`. An empty `headcount` means unknown, not
-zero — never guess it.
+`data/companies.csv` drives the first_tpm lane's fetch: one row per portfolio
+company, columns `name,ats,token,headcount,source`. An empty `headcount` means
+unknown, not zero — never guess it. See
+[`docs/first-tpm-lane.md`](./docs/first-tpm-lane.md) for how the list is built.
+
+It's hand-maintained and **gitignored**, along with the `signals/` watchlist
+`company_signals` writes — both name the specific companies being watched, and
+that's not something this repo publishes. A fresh clone therefore has neither,
+and the first_tpm lane needs a `data/companies.csv` supplied locally before it
+will fetch anything. Nothing else depends on it: the fractional lane and the
+whole test suite run without it.
 
 ## Running it manually
 
@@ -199,9 +205,19 @@ sh scripts/install-hooks.sh
 the branch name and runs the suite, and lets only digest commits go
 straight to main — everything else needs a PR. `--no-verify` bypasses both.
 
-**CI** re-runs the same checks via `scripts/hygiene.py`, so a bypassed or
-uninstalled hook still gets caught before merge. The rules live in that one
-module precisely so the hooks and CI can't drift apart.
+**CI** re-runs the file-size, never-commit, conflict-marker and branch-name
+checks via `scripts/hygiene.py`, so a bypassed or uninstalled hook still gets
+caught before merge. The rules live in that one module precisely so the hooks
+and CI can't drift apart.
+
+The digest-only-on-main rule is the exception, and worth being honest about:
+its only caller is `pre-push`, so it stops nothing when the hooks aren't
+installed or the push uses `--no-verify`, and CI structurally cannot cover it —
+by the time a workflow runs, the commit is already on `main`. A workflow can
+report that violation but not prevent it. So the first two layers are real
+enforcement and this one is a convention with a local guard in front of it;
+making it a guarantee takes a branch protection rule on the remote, which lives
+in GitHub settings rather than in this repo.
 
 A `Stop` hook in `.claude/settings.json` also warns when a Claude Code
 session ends with the repo off main or dirty — the state that makes the

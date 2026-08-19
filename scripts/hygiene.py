@@ -19,30 +19,37 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 # git limit on purpose: nothing this repo legitimately tracks is near it.
 MAX_FILE_BYTES = 2 * 1024 * 1024
 
-# Generated per-run output. These are gitignored, so they can only show up
-# staged via an explicit `git add -f`, which is always a mistake here.
+# Two kinds of thing that must stay out of git, both gitignored, so either can
+# only show up staged via an explicit `git add -f`:
+#   - generated per-run output, which is scratch rather than deliverable;
+#   - signals/ and data/companies.csv, which are deliberately private. This is
+#     a public repo, and both name the specific companies being watched - the
+#     signals table ranks them by how close they look to hiring. Keeping the
+#     stage but not the artifact is the point; see digest.run.
 NEVER_COMMIT = ("data/raw/", "data/runs/", "logs/", "__pycache__/",
-                ".DS_Store", ".claude/settings.local.json", "Claude.dmg")
+                ".DS_Store", ".claude/settings.local.json", "Claude.dmg",
+                "signals/", "data/companies.csv")
 
 # `worktree-agent-abbbb31faaf724ad2` and friends became PR titles. Require a
 # type prefix and a human-readable slug instead.
 BRANCH_PATTERN = re.compile(r"^(feat|fix|chore|docs|test|refactor|ci)/[a-z0-9][a-z0-9._-]*$")
 EXEMPT_BRANCHES = frozenset({"main"})
 
-# The weekly job commits straight to main by design. Every other change goes
-# through a PR, and a digest commit is recognisable by both its subject and
-# the fact that it only ever touches published output.
+# The weekly job commits straight to main by design (when pushed through the
+# pre-push hook - see check_main_push for what that does and does not
+# guarantee). A digest commit is recognisable by both its subject and the fact
+# that it only ever touches published output.
 #
-# The signals clause mirrors the matches one because company_signals writes a
-# dated file to a top-level directory (paths.signals_path), exactly as digest
-# does for matches. An earlier `data/signals[\w.-]*\.md` never matched: the
-# artifact isn't under data/, and `[\w.-]` excludes `/`, so no dated file in a
-# directory could match it either. That cost the 2026-08-17 run - digest
-# committed the signals file, pre-push rejected the commit as "not a digest
-# commit", and the push failed after the matches file had already been
-# rendered and committed.
+# This pattern must stay in sync with exactly the paths digest.run commits.
+# When it didn't, the 2026-08-17 run failed: digest committed signals/<date>.md
+# while this pattern only allowed `data/signals[\w.-]*\.md`, which could never
+# match it - the artifact isn't under data/, and `[\w.-]` excludes `/`. The
+# push was rejected as "not a digest commit" after the matches file had already
+# been rendered and committed, and digest writes no checkpoint on failure, so
+# every later run repeated the rejection. signals/ is no longer published at
+# all, which is why it isn't listed here; it's in NEVER_COMMIT instead.
 DIGEST_SUBJECT = "Weekly matches:"
-DIGEST_PATH_PATTERN = re.compile(r"^(matches/[\d-]+\.md|data/seen\.json|signals/[\d-]+\.md)$")
+DIGEST_PATH_PATTERN = re.compile(r"^(matches/[\d-]+\.md|data/seen\.json)$")
 
 CONFLICT_MARKER = re.compile(r"^(<{7}|={7}|>{7})(\s|$)")
 
@@ -104,8 +111,14 @@ def check_branch_name(branch: str) -> list:
 def check_main_push(commits) -> list:
     """`commits` is a list of (subject, [changed paths]) going to main.
 
-    Only the scheduled digest may land on main without review; anything else
-    pushed straight to main skipped CI and the PR entirely."""
+    Only the scheduled digest should land on main without review; anything else
+    pushed straight to main skips the PR entirely.
+
+    This is a local guard, not a guarantee. Its only caller is .githooks/
+    pre-push, so it catches nothing when the hooks aren't installed or when the
+    push uses --no-verify, and CI cannot backstop it - by the time a workflow
+    runs, the commit is already on main. Enforcing this for real needs a branch
+    protection rule on the remote."""
     problems = []
     for subject, changed in commits:
         if subject.startswith(DIGEST_SUBJECT) and all(

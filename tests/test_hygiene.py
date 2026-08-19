@@ -4,6 +4,7 @@ the git plumbing around them is exercised by the hooks themselves."""
 import unittest
 
 import hygiene
+from pipeline import paths
 
 
 def _reader(contents):
@@ -105,22 +106,35 @@ class MainPushTest(unittest.TestCase):
                     ["matches/2026-08-10.md", "data/seen.json"])]
         self.assertEqual(hygiene.check_main_push(commits), [])
 
-    def test_a_digest_commit_carrying_signals_may_go_straight_to_main(self):
-        """company_signals writes signals/<date>.md and digest commits it
-        alongside the matches file. The 2026-08-17 run failed here: the
-        pattern only allowed data/signals*.md, so the push was rejected as
-        "not a digest commit" after the commit had already been made."""
+    def test_a_digest_commit_carrying_signals_is_blocked(self):
+        """signals/ is private and digest no longer commits it. The 2026-08-17
+        run failed on the other side of this: digest committed the signals file
+        while the pattern only allowed data/signals*.md, so the push was
+        rejected after the commit had already been made. The lesson was that
+        this pattern and digest's commit list must agree - the direction they
+        agree in changed when signals stopped being published."""
         commits = [("Weekly matches: 2026-08-17",
                     ["matches/2026-08-17.md", "data/seen.json",
                      "signals/2026-08-17.md"])]
-        self.assertEqual(hygiene.check_main_push(commits), [])
-
-    def test_a_signals_path_outside_the_dated_convention_is_blocked(self):
-        """Only dated signals files are published output - anything else under
-        signals/ is a code or config change and needs a PR."""
-        commits = [("Weekly matches: 2026-08-17",
-                    ["matches/2026-08-17.md", "signals/render.py"])]
         self.assertEqual(len(hygiene.check_main_push(commits)), 1)
+
+    def test_the_pattern_matches_exactly_what_digest_commits(self):
+        """Pins the coupling the 2026-08-17 outage came from, rather than the
+        specific paths involved: anything digest.run puts in commit_paths has
+        to be pushable to main, and anything it deliberately leaves out has to
+        not be."""
+        relative = lambda p: str(p.relative_to(paths.PROJECT_DIR))
+        for published in (paths.matches_path("2026-08-17"), paths.seen_path()):
+            self.assertRegex(relative(published), hygiene.DIGEST_PATH_PATTERN)
+        self.assertNotRegex(relative(paths.signals_path("2026-08-17")),
+                            hygiene.DIGEST_PATH_PATTERN)
+
+    def test_signals_and_the_company_list_are_never_committable(self):
+        """Both name the companies being watched, in a public repo. gitignore
+        alone would let `git add -f` through."""
+        problems = hygiene.check_never_commit(
+            ["signals/2026-08-17.md", "data/companies.csv"])
+        self.assertEqual(len(problems), 2)
 
     def test_ordinary_work_pushed_to_main_is_blocked(self):
         commits = [("Fix greenhouse posted date field", ["scripts/pipeline/normalize.py"])]
