@@ -28,7 +28,7 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 #     stage but not the artifact is the point; see digest.run.
 NEVER_COMMIT = ("data/raw/", "data/runs/", "logs/", "__pycache__/",
                 ".DS_Store", ".claude/settings.local.json", "Claude.dmg",
-                "signals/", "data/companies.csv")
+                "signals/", "data/companies.csv", "data/known_good.csv")
 
 # `worktree-agent-abbbb31faaf724ad2` and friends became PR titles. Require a
 # type prefix and a human-readable slug instead.
