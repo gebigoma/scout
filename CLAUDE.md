@@ -107,9 +107,9 @@ status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.json
 - **`data/companies.csv` is hand-maintained** (`name,ats,token,headcount,source`)
   and drives the first_tpm lane's fetch. An empty `headcount` means unknown, not
   zero — never guess it.
-- **`signals/` and `data/companies.csv` are private**, gitignored *and* in
-  `hygiene.NEVER_COMMIT` so `git add -f` can't sneak them back. This is a public
-  repo and both name the companies being watched — the signals table ranks them
+- **`signals/`, `data/companies.csv`, and `data/known_good.csv` are private**,
+  gitignored *and* in `hygiene.NEVER_COMMIT` so `git add -f` can't sneak them
+  back. This is a public repo and all three name the companies being watched — the signals table ranks them
   by how close they look to opening a req. The stages still run and still write
   the files locally; only publishing is off. A fresh clone has neither, which is
   why nothing in the suite reads the real ones.
