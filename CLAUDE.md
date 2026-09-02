@@ -172,17 +172,37 @@ isn't:
 | File size, never-commit, conflict markers | `staged` / `tracked` | ✅ | — | ✅ |
 | Branch name | `branch` | — | ✅ | ✅ (PRs) |
 | Digest-only commits on `main` | `push-to-main` | — | ✅ | ❌ |
+| Unmerged branches surfaced at session start | `branch-check.sh` | — | — | — |
 
-The last row is the gap. `push-to-main` has exactly one caller,
+The last two rows are the gap. `push-to-main` has exactly one caller,
 `.githooks/pre-push`, so the rule holds only when the hooks are installed
 (`sh scripts/install-hooks.sh`, once per clone) and nobody passes
 `--no-verify`. **CI cannot backstop it** — by the time a workflow runs the
 commit is already on `main`, so a workflow can only report the violation, not
-prevent it. Treat "everything else goes through a PR" as a convention this
-repo helps you keep, not one it enforces; the only real enforcement would be a
-branch protection rule on the remote, which is GitHub-side config and not
-visible in this tree. The other rows genuinely do survive a bypassed or
-uninstalled hook, because CI re-runs those same checks before merge.
+prevent it.
+
+`branch-check.sh` has the same shape, for a different reason: it runs as a
+`SessionStart` hook, so **CI cannot backstop it either** — it has to run
+before work starts, and by the time CI runs, the duplicate work it would have
+prevented has already happened. Like `push-to-main`, it holds only when the
+hooks are installed and running. That makes two rows in the "convention this
+repo helps you keep, not one it enforces" column, not one.
+
+Treat "everything else goes through a PR" as a convention this repo helps you
+keep, not one it enforces; the only real enforcement would be a branch
+protection rule on the remote, which is GitHub-side config and not visible in
+this tree. The other rows genuinely do survive a bypassed or uninstalled
+hook, because CI re-runs those same checks before merge.
+
+`branch-check.sh` has two honest limits beyond that. It surfaces that a
+branch exists; it cannot tell that two branches address the same task — it
+converts "remember to look" into "ignore what's on screen," nothing more.
+And it reports branches, not PR state: whether a branch has an open PR, and
+whether that PR has since merged, lives on GitHub and is not visible in local
+refs. Catching that would need a `gh` call, which reintroduces the network
+dependency the no-fetch design rules out (see the script's header comment),
+so it is deliberately out of scope — a real gap: PR #23's state went stale
+mid-session once and was reported wrongly from a cached read.
 
 ## Tests
 
