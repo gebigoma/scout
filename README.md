@@ -240,6 +240,24 @@ enforcement and this one is a convention with a local guard in front of it;
 making it a guarantee takes a branch protection rule on the remote, which lives
 in GitHub settings rather than in this repo.
 
-A `Stop` hook in `.claude/settings.json` also warns when a Claude Code
-session ends with the repo off main or dirty — the state that makes the
-following Monday's run skip publishing.
+Two Claude Code hooks in `.claude/settings.json` cover the states that never
+show up in a diff. A `Stop` hook warns when a session ends with the repo off
+main or dirty — the state that makes the following Monday's run skip
+publishing. A `SessionStart` hook (`scripts/branch-check.sh`) lists branches
+not merged into main at the start of a session, because an unmerged branch
+with no open PR is invisible otherwise: one sat here for two weeks, then got
+rewritten from scratch as a narrower PR before the original was found and
+merged.
+
+That second one deliberately doesn't `git fetch`. A network call in session
+startup stalls the session when the remote is slow, and base macOS has no
+portable `timeout` to bound it — so it reads local refs only. The cost is
+staleness in one direction: a deleted-but-not-pruned branch can show up as a
+false positive, which is why the warning carries `git fetch --prune` as text
+instead of running it. It also reports branches, not PR state — whether a
+branch has an open PR lives on GitHub, not in local refs — and it can't tell
+that two branches are doing the same job. It replaces "remember to look" with
+"ignore what's on screen," which is a smaller claim, but the one it can
+actually keep. And like the digest-only-on-main rule, nothing backstops it:
+a check whose whole purpose is to run before work starts is one CI cannot
+re-run after the fact.
