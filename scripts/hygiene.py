@@ -22,10 +22,11 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 # Two kinds of thing that must stay out of git, both gitignored, so either can
 # only show up staged via an explicit `git add -f`:
 #   - generated per-run output, which is scratch rather than deliverable;
-#   - signals/ and data/companies.csv, which are deliberately private. This is
-#     a public repo, and both name the specific companies being watched - the
-#     signals table ranks them by how close they look to hiring. Keeping the
-#     stage but not the artifact is the point; see digest.run.
+#   - the three private files. This is a public repo, and each names specific
+#     companies: signals/ ranks them by how close they look to hiring,
+#     companies.csv is the watchlist it's computed from, and known_good.csv
+#     records reqs worth applying to that the pipeline failed to surface.
+#     Keeping the stages but not their artifacts is the point; see digest.run.
 NEVER_COMMIT = ("data/raw/", "data/runs/", "logs/", "__pycache__/",
                 ".DS_Store", ".claude/settings.local.json", "Claude.dmg",
                 "signals/", "data/companies.csv", "data/known_good.csv")

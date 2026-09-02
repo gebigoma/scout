@@ -144,11 +144,33 @@ unknown, not zero — never guess it. See
 [`docs/first-tpm-lane.md`](./docs/first-tpm-lane.md) for how the list is built.
 
 It's hand-maintained and **gitignored**, along with the `signals/` watchlist
-`company_signals` writes — both name the specific companies being watched, and
-that's not something this repo publishes. A fresh clone therefore has neither,
-and the first_tpm lane needs a `data/companies.csv` supplied locally before it
-will fetch anything. Nothing else depends on it: the fractional lane and the
-whole test suite run without it.
+`company_signals` writes and `data/known_good.csv` — these name specific
+companies, and that's not something this repo publishes. A fresh clone
+therefore has none of them, and the first_tpm lane needs a
+`data/companies.csv` supplied locally before it will fetch anything. Nothing
+else depends on it: the fractional lane and the whole test suite run without
+it.
+
+Copy the committed templates to start:
+
+```
+cp data/companies.example.csv data/companies.csv
+cp data/known_good.example.csv data/known_good.csv
+```
+
+Then replace the invented rows with real ones — the templates carry the schema,
+not usable data, and their tokens are placeholders that every ATS will 404.
+
+That last part matters more than it looks, because this lane fails *quietly* in
+both directions. `load_companies` returns an empty list rather than raising when
+the file is missing, and a file full of tokens that 404 is skipped company by
+company as "not on that ATS". Either way the lane runs to completion over
+nothing and publishes "No matches this week" — the same output an honest quiet
+week produces. Until that's distinguished in the manifest, treat a zero from
+first_tpm as unconfirmed unless you know the list is populated. The suite loads
+`companies.example.csv` through the real loader, which keeps the template
+truthful about the schema but says nothing about whether your copy has real
+companies in it.
 
 ## Running it manually
 

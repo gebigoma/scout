@@ -6,8 +6,8 @@ data/runs/
 Claude.dmg
 logs/
 .claude/settings.local.json
-# Deliberately private in a public repo - all three name the companies being
-# watched. hygiene.NEVER_COMMIT blocks them from an accidental `git add -f`.
+# Deliberately private in a public repo - each names companies being watched
+# or applied to. hygiene.NEVER_COMMIT blocks an accidental `git add -f`.
 signals/
 data/companies.csv
 data/known_good.csv

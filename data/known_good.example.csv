@@ -1,0 +1,2 @@
+date_found,company,role_title,url,ats,found_via,headcount,lane,missed_at,notes
+2026-01-15,Example Co,Technical Program Manager,https://example.com/jobs/00000,workable,manual-browse,80,first_tpm,universe;ats,"Example row - not a real listing. missed_at is semicolon-separated when a role was dropped for more than one independent reason: here the company is on no VC portfolio page (universe) and its ATS isn't one of the three fetch_ats covers (ats). Leave notes long enough to reconstruct the miss months later."
