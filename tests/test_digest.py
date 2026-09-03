@@ -1,4 +1,5 @@
 import json
+import subprocess
 import unittest
 from unittest import mock
 
@@ -172,6 +173,31 @@ class CurrentBranchTest(PipelineTestCase):
 
     def test_a_non_repo_reports_no_branch(self):
         self.assertEqual(digest._current_branch(), "")
+
+
+class GitErrorTest(PipelineTestCase):
+    """Pins the diagnostic gap that made 2026-08-17 and 2026-08-24 look
+    identical in the log - both reached it as "returned non-zero exit status
+    1", though one was the pre-push hook rejecting the commit and the other a
+    credential that had expired."""
+
+    def test_the_error_message_carries_what_git_printed(self):
+        init_repo_with_remote(self.project_dir)
+        with self.assertRaises(digest.GitError) as ctx:
+            digest._git("checkout", "no-such-branch")
+        self.assertIn("no-such-branch", str(ctx.exception))
+
+    def test_it_is_still_a_calledprocesserror_so_existing_handlers_catch_it(self):
+        """_current_branch and _unpushed_commit_count both treat a non-zero
+        git exit as an expected answer rather than a failure. Raising a fresh
+        exception type instead of a subclass would turn those into crashes."""
+        init_repo_with_remote(self.project_dir)
+        with self.assertRaises(subprocess.CalledProcessError):
+            digest._git("checkout", "no-such-branch")
+
+    def test_a_successful_call_still_returns_stripped_stdout(self):
+        init_repo_with_remote(self.project_dir)
+        self.assertEqual(digest._git("rev-parse", "--abbrev-ref", "HEAD"), "main")
 
 
 class DigestRunTest(PipelineTestCase):

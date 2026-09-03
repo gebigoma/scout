@@ -149,6 +149,23 @@ status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.json
   rejected as "not a digest commit" and failed. Nothing re-runs its way out of
   that: digest writes no checkpoint on failure, so every later run repeats the
   same rejection. Adding a path to either side means adding it to both.
+- **A failed subprocess must report both streams.** Every stage that shells
+  out (`classify`, `score`, `digest`) captures stdout and stderr, and the
+  failure path has to surface whichever one carried the diagnostic. Two
+  incidents came from getting this wrong. The `claude` CLI prints an expired
+  login to *stdout* and exits 1 with stderr empty, so `classify` — which
+  interpolated only `proc.stderr` — logged `(exit 1): ` with nothing after
+  the colon, and the 2026-08-31 run discarded 397 fetched listings for a
+  cause the log could not name. Separately, `subprocess.CalledProcessError`
+  captures stderr but its `str()` shows only the command and exit status, so
+  every failed push read as "returned non-zero exit status 1" whether the
+  pre-push hook rejected the commit (2026-08-17) or the stored GitHub
+  credential had expired (2026-08-24) — telling those apart afterwards took
+  commit archaeology. `llm.failure_detail` and `digest.GitError` exist for
+  this; use them rather than formatting `proc.stderr` directly.
+  `digest.GitError` subclasses `CalledProcessError` on purpose, because
+  `_current_branch` and `_unpushed_commit_count` treat a non-zero git exit as
+  an expected answer and catch it.
 
 ## Repo hygiene
 
