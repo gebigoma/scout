@@ -114,9 +114,36 @@ def _update_seen(run_date: str, scored: list) -> None:
     paths.atomic_write_json(path, {"seen": dict(sorted(seen.items()))})
 
 
+class GitError(subprocess.CalledProcessError):
+    """A failed git command that says what git actually printed.
+
+    The base class captures stderr but its str() shows only the command and
+    the exit status, so every failed push reached the log as the same
+    "returned non-zero exit status 1" - identical text whether the pre-push
+    hook rejected the commit or the stored credential had expired. Those were
+    the real causes on 2026-08-17 and 2026-08-24 respectively, and telling
+    them apart afterwards took commit archaeology rather than a log read.
+
+    Subclassing rather than raising a fresh type keeps `except
+    CalledProcessError` callers below working unchanged: for them a non-zero
+    git exit is an expected answer (no branch, no upstream), not a failure.
+    """
+
+    def __str__(self) -> str:
+        detail = (self.stderr or "").strip() or (self.output or "").strip()
+        base = super().__str__()
+        # rstrip the base's trailing period so the appended detail doesn't
+        # read as ".: fatal: ...".
+        return f"{base.rstrip('.')}: {detail[:500]}" if detail else base
+
+
 def _git(*args) -> str:
-    return subprocess.run(["git", *args], cwd=paths.PROJECT_DIR, check=True,
-                           capture_output=True, text=True).stdout.strip()
+    proc = subprocess.run(["git", *args], cwd=paths.PROJECT_DIR,
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise GitError(proc.returncode, ["git", *args],
+                       output=proc.stdout, stderr=proc.stderr)
+    return proc.stdout.strip()
 
 
 def _current_branch() -> str:

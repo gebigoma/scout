@@ -51,7 +51,8 @@ def _call_claude(prompt: str) -> dict:
         input=prompt, text=True, capture_output=True, timeout=300,
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"claude score call failed (exit {proc.returncode}): {proc.stderr[:500]}")
+        raise RuntimeError(
+            f"claude score call failed (exit {proc.returncode}): {llm.failure_detail(proc)}")
     return json.loads(proc.stdout)
 
 
