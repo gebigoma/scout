@@ -97,10 +97,42 @@ status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.json
 - **Word-boundary match on `\btpm\b`** in `prefilter.py` (and `\bml\b` in
   `company_signals.py`) — the first_tpm lane sources heavily from
   infra/security companies where "TPM" means Trusted Platform Module.
-- **`normalize` snippets keep buried employment-terms sentences**, not just the
-  description head. These sources bury "contract"/"part-time" under "About Us"
-  boilerplate, and head-truncation hides the exact evidence the criteria
-  require. HN headers are parsed by content, not position.
+- **`normalize` snippets keep buried evidence sentences**, not just the
+  description head. These sources bury the evidence under "About Us"
+  boilerplate, and head-truncation hides the exact thing the criteria require.
+  Which sentences get salvaged is *lane-specific*: the fractional lane rescues
+  `EMPLOYMENT_TERMS` ("contract"/"part-time"), the first_tpm lane rescues those
+  plus `prefilter.EVIDENCE_TERM` (role + foundation vocabulary), because that
+  lane turns on whether the hire would establish the function, not on the
+  employment terms. `EVIDENCE_TERM` is defined in `prefilter` and imported by
+  `normalize` so the evidence one stage preserves and the other looks for
+  cannot drift. HN headers are parsed by content, not position.
+- **A snippet is stitched; `match_text` is contiguous.** `_extract_snippet`
+  returns `head + " […] " + salvaged sentences`, so any *distance* measured
+  across it is a distance that does not exist in the document. `normalize`
+  therefore carries the whole description on first_tpm listings as
+  `match_text`, `prefilter` matches on that, and `prefilter` strips it from
+  everything it passes downstream — the field lives in exactly one checkpoint.
+  That costs `normalize.json` roughly 2MB → 14MB on a real corpus and leaves
+  every later checkpoint unchanged; `fetch_ats.json` is already 26MB, so the
+  stripping is what keeps this from compounding across the retained runs.
+  Getting this wrong is what made the first_tpm lane emit **zero** candidates
+  on every run of its life (issue #13): `prefilter` matched the 400-char
+  snippet, where 9 of 2018 listings on the 2026-08-17 corpus carried a role
+  term, versus 37 in the full text. The tier-2 distances were never the
+  problem — the six real candidates sit at 45–195 characters, comfortably
+  inside `PROXIMITY_WINDOW` (200). Raising that window would have "fixed"
+  nothing and hidden the cause.
+- **`prefilter.near_miss` means a role term was seen and dropped anyway** — not
+  "exactly one term family present", which is what it meant until 2026-09-03.
+  Foundation vocabulary ("first", "establish", "build out") is ordinary job-ad
+  filler present in ~two thirds of any real corpus, so the old definition was
+  only survivable while matching ran over a truncated snippet; over whole
+  descriptions it produces ~1300 logged "near misses" a run and buries the ~30
+  worth reading. The manifest also records `first_tpm_seen` and
+  `role_terms_seen`, so "the lane saw no role terms" and "the lane saw them and
+  dropped them all" stop producing an identical empty digest and an identical
+  green run.
 - **Greenhouse needs `?content=true`** — the bare endpoint has no description
   field at all. A 404 from any ATS means the company isn't on it and is
   skipped, not a failure; board tokens are guesswork.

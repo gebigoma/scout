@@ -220,6 +220,35 @@ class NormalizeAtsTest(unittest.TestCase):
         self.assertEqual(listing["title"], "Staff Program Manager, Infrastructure")
         self.assertEqual(listing["url"], fixtures.LEVER_JOB["hostedUrl"])
 
+    def test_ats_listings_carry_the_full_description_as_match_text(self):
+        """prefilter measures term distances over this, so it has to be the
+        whole description and it has to be contiguous - not the snippet,
+        which is a 400-char head stitched to salvaged sentences."""
+        body = ("Boilerplate about us. " * 40) + "You would be our first TPM hire."
+        job = {**fixtures.GREENHOUSE_JOB, "content": f"<p>{body}</p>"}
+        listing, = normalize._normalize_ats(self._companies_results("greenhouse", job))
+        self.assertIn("first TPM hire", listing["match_text"])
+        self.assertGreater(len(listing["match_text"]), normalize.HEAD_CHARS)
+        self.assertNotIn("[…]", listing["match_text"])
+
+    def test_snippet_rescues_buried_founding_evidence_for_classify(self):
+        """The second half of issue #13. Salvaging only EMPLOYMENT_TERMS
+        sentences meant a first_tpm listing reached the model as 400 chars of
+        "About Us" with the founding language cut off - so even a listing that
+        passed prefilter was judged on evidence the model never saw."""
+        body = ("Boilerplate about us. " * 40) + "You would establish the function as our first TPM."
+        job = {**fixtures.GREENHOUSE_JOB, "content": f"<p>{body}</p>"}
+        listing, = normalize._normalize_ats(self._companies_results("greenhouse", job))
+        self.assertIn("first TPM", listing["snippet"])
+        self.assertIn("establish", listing["snippet"])
+
+    def test_fractional_snippets_still_salvage_only_employment_terms(self):
+        """The founding vocabulary is first_tpm's; widening the fractional
+        lane's salvage set would change what its classify calls see."""
+        body = ("Boilerplate about us. " * 40) + "You would be our first TPM hire."
+        snippet = normalize._extract_snippet(body)
+        self.assertNotIn("first TPM hire", snippet)
+
     def test_failed_or_skipped_companies_contribute_no_listings(self):
         results = {
             "Down Co": {"status": "failed", "company": {"ats": "greenhouse"}, "jobs": []},

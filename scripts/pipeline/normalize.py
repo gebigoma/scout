@@ -4,7 +4,7 @@ import html
 import json
 import re
 
-from . import logging_setup, manifest, paths
+from . import logging_setup, manifest, paths, prefilter
 
 
 def _strip_html(text: str) -> str:
@@ -36,20 +36,34 @@ EMPLOYMENT_TERMS = re.compile(
     re.IGNORECASE,
 )
 
+# The first-TPM lane turns on different evidence than the fractional lane:
+# whether the hire would *establish* the function, not what the employment
+# terms are. Salvaging only EMPLOYMENT_TERMS sentences left classify judging
+# founding-ness from 400 characters of "About Us" - the same false-negative
+# mechanism the docstring below describes, one lane over. Employment terms
+# stay in the set because these criteria still require full-time.
+FIRST_TPM_TERMS = re.compile(
+    EMPLOYMENT_TERMS.pattern + "|" + prefilter.EVIDENCE_TERM.pattern, re.IGNORECASE)
+
 HEAD_CHARS = 400
 MAX_SNIPPET = 1200
 
 
-def _extract_snippet(text: str, head_chars: int = HEAD_CHARS) -> str:
+def _extract_snippet(text: str, head_chars: int = HEAD_CHARS,
+                     terms: "re.Pattern" = EMPLOYMENT_TERMS) -> str:
     """Keep the opening of the description, then append any later sentences
-    that mention employment terms.
+    that mention `terms`.
 
     Plain head-truncation systematically defeats the criteria: We Work
     Remotely descriptions open with "Headquarters: ... About Us ..."
     boilerplate and state the employment type further down, so a fixed cut
     fed the model 500 chars of marketing copy and hid the very evidence it
     was asked to find. That produces false negatives that are invisible by
-    construction - and makes a zero-match week untrustworthy."""
+    construction - and makes a zero-match week untrustworthy.
+
+    The result is *stitched*, not contiguous: anything that measures
+    distance between two terms must use `match_text` instead. See
+    `prefilter._match_text`."""
     text = (text or "").strip()
     head = text[:head_chars]
     tail = text[head_chars:]
@@ -57,7 +71,7 @@ def _extract_snippet(text: str, head_chars: int = HEAD_CHARS) -> str:
         return head
 
     hits = [s.strip() for s in re.split(r"(?<=[.!?\n])\s+", tail)
-            if EMPLOYMENT_TERMS.search(s)]
+            if terms.search(s)]
     if not hits:
         return head
     return (head + " […] " + " ".join(hits))[:MAX_SNIPPET]
@@ -213,13 +227,18 @@ def _normalize_ats(companies_results: dict) -> list:
                 title, url = job.get("text", ""), job.get("hostedUrl", "")
                 posted = job.get("createdAt", "")
                 desc = job.get("descriptionPlain", job.get("description", ""))
+            clean = _one_line(_strip_html(desc))
             result.append({
                 "source": f"{company['ats']}:{company['token']}",
                 "title": _one_line(title),
                 "company": company["name"],
                 "url": url,
                 "posted_date": str(posted),
-                "snippet": _extract_snippet(_strip_html(desc)),
+                "snippet": _extract_snippet(clean, terms=FIRST_TPM_TERMS),
+                # The whole description, kept contiguous so prefilter can
+                # measure real distances over it. Dropped again by prefilter,
+                # so it only ever lives in this one checkpoint.
+                "match_text": clean,
                 "tags": [],
                 "lane": "first_tpm",
                 "headcount": company.get("headcount"),
