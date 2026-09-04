@@ -11,6 +11,15 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 	[ "$local_sha" = "$zero" ] && continue  # branch deletion
 
 	branch="${local_ref#refs/heads/}"
+	# `git push origin HEAD:main` - exactly what digest does - reports the
+	# local side as the literal string "HEAD", not refs/heads/<name>, so the
+	# strip above is a no-op and "HEAD" never matched the branch pattern.
+	# Every scheduled digest push was rejected here from 2026-08-10 (when
+	# this check and that refspec landed in the same commit) until it was
+	# found: the run committed, failed to push, and stranded the commit.
+	if [ "$branch" = "HEAD" ]; then
+		branch="$(git symbolic-ref --quiet --short HEAD || echo HEAD)"
+	fi
 	python3 "$root/scripts/hygiene.py" branch "$branch"
 
 	# Direct pushes to main are reserved for the scheduled digest job.
