@@ -24,11 +24,19 @@ class PrePushHookTest(PipelineTestCase):
         (self.project_dir / "scripts").mkdir(exist_ok=True)
         shutil.copy(REAL_ROOT / "scripts" / "hygiene.py",
                     self.project_dir / "scripts" / "hygiene.py")
-        # The hook's last step runs the suite against $root. Give it an empty
-        # package so discovery succeeds trivially instead of re-entering the
-        # real suite from inside a test.
+        # The hook's last step runs the suite against $root. Give it a tiny
+        # passing suite rather than re-entering the real one from inside a
+        # test. It needs at least one actual test: from Python 3.12 unittest
+        # exits non-zero on "NO TESTS RAN", so an empty package fails the hook
+        # on 3.13 while passing on 3.9 and 3.11.
         (self.project_dir / "tests").mkdir(exist_ok=True)
         (self.project_dir / "tests" / "__init__.py").write_text("")
+        (self.project_dir / "tests" / "test_placeholder.py").write_text(
+            "import unittest\n\n\n"
+            "class Placeholder(unittest.TestCase):\n"
+            "    def test_the_hook_has_something_to_run(self):\n"
+            "        pass\n"
+        )
         git("config", "core.hooksPath", ".githooks", cwd=self.project_dir)
 
     def _commit_digest(self, date="2026-08-31"):
