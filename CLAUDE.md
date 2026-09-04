@@ -149,6 +149,22 @@ status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.json
   rejected as "not a digest commit" and failed. Nothing re-runs its way out of
   that: digest writes no checkpoint on failure, so every later run repeats the
   same rejection. Adding a path to either side means adding it to both.
+- **The pre-push hook must accept the refspec `digest` actually pushes.**
+  `digest` pushes `HEAD:{PUBLISH_BRANCH}`, and git reports that local side to
+  the hook as the literal string `HEAD` rather than `refs/heads/<name>` — so
+  `.githooks/pre-push` stripping `refs/heads/` left `HEAD`, which no branch
+  pattern matches. `c405ca0` (2026-08-10) introduced that refspec and that
+  branch check *in the same commit*, so they were never compatible, and every
+  scheduled digest push from then until 2026-09-03 was rejected: the run
+  committed, failed to push, stranded the commit, and reported a bare exit
+  status. Three runs failed this way (08-17, 08-24, 08-31). Note the entry
+  above blames 08-17 on `DIGEST_PATH_PATTERN` alone — that commit did also
+  carry `signals/`, but the branch check runs *first*, so this was the
+  rejection it actually hit. The attribution was reconstructed after the fact
+  from an error message that had been stripped of its cause, which is the
+  same defect the entry below describes. `tests/test_githooks.py` now runs
+  the real hook against a real push; nothing else in the suite covers
+  `.githooks/`, which is how this survived three runs.
 - **A failed subprocess must report both streams.** Every stage that shells
   out (`classify`, `score`, `digest`) captures stdout and stderr, and the
   failure path has to surface whichever one carried the diagnostic. Two
