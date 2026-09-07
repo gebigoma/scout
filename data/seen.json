@@ -1,5 +1,6 @@
 {
   "seen": {
+    "https://jobs.ashbyhq.com/baseten/40bce839-10ad-4274-a988-7cee8e0f795e": "2026-09-07",
     "https://jobs.ashbyhq.com/supabase/7a5d81a2-c586-4d7f-a179-89c95869ca33": "2026-08-31",
     "https://news.ycombinator.com/item?id=48757307": "2026-08-01",
     "https://news.ycombinator.com/item?id=48833943": "2026-08-01",
@@ -7,6 +8,9 @@
     "https://news.ycombinator.com/item?id=49156702": "2026-08-03",
     "https://news.ycombinator.com/item?id=49248055": "2026-08-31",
     "https://news.ycombinator.com/item?id=49313253": "2026-08-31",
-    "https://weworkremotely.com/remote-jobs/a-team-senior-independent-ai-engineer-architect": "2026-08-01"
+    "https://news.ycombinator.com/item?id=49532457": "2026-09-07",
+    "https://weworkremotely.com/remote-jobs/a-team-senior-independent-ai-engineer-architect": "2026-08-01",
+    "https://weworkremotely.com/remote-jobs/toptal-ai-ml-engineer-for-an-ai-driven-e-commerce-platform": "2026-09-07",
+    "https://weworkremotely.com/remote-jobs/toptal-python-backend-development-talent-with-rag-and-agentic-ai-experience": "2026-09-07"
   }
 }
