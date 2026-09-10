@@ -135,10 +135,12 @@ class PruneTest(BackupPrivateTestCase):
         self.assertIn("would delete", proc.stderr)
 
 
-class VerificationTest(BackupPrivateTestCase):
-    """A run that fails verification must alert and stop before prune - a
-    half-copied backup pruning away the last good one would be strictly
-    worse than not backing up at all."""
+class VerificationPassesOnFullRunTest(BackupPrivateTestCase):
+    """Covers verification passing on a real, full run (copy always makes
+    destination byte-identical to source, so a full run can't naturally
+    produce a verification *failure* without external corruption between
+    copy and verify - those branches are covered directly, in isolation, by
+    VerificationEmptySourceTest via --verify-only instead)."""
 
     def _seed_source(self):
         data = self.fixture_root / "data"
@@ -146,25 +148,22 @@ class VerificationTest(BackupPrivateTestCase):
         (data / "companies.csv").write_text("name,ats,token,headcount,source\na,b,c,,d\n")
         (data / "known_good.csv").write_text("role,company,url,missed_at\nx,y,z,prefilter\n")
 
-    def test_an_empty_source_file_fails_verification_and_blocks_prune(self):
+    def test_an_empty_source_csv_passes_verification_and_prunes(self):
+        """An empty data/companies.csv is a legitimate state (see CLAUDE.md
+        on it being absent entirely on a fresh clone) - the CSV-specific
+        empty-file check must not treat "empty" as "corrupt"."""
         self._seed_source()
         (self.fixture_root / "data" / "companies.csv").write_text("")
 
-        # Pre-seed old backups that a successful prune *would* remove, to
-        # prove the failed run never reaches the prune step at all.
         old_names = _series(40)
         self._make_dated_dirs(self.icloud_root, old_names)
 
         proc = self.run_script(root=self.icloud_root)
 
-        self.assertEqual(proc.returncode, 1)
-        self.assertIn("verification failed", proc.stdout + proc.stderr)
-        # Nothing pre-existing was pruned. (Today's own dated folder also
-        # exists now, half-populated by the failed run - that's expected;
-        # what matters is the old backups a successful prune would have
-        # removed are all still there.)
-        remaining = set(self._remaining(self.icloud_root))
-        self.assertTrue(set(old_names).issubset(remaining))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("verification failed", proc.stdout + proc.stderr)
+        remaining = self._remaining(self.icloud_root)
+        self.assertLess(len(remaining), len(old_names) + 1)
 
     def test_a_valid_source_passes_verification_and_prunes(self):
         self._seed_source()
@@ -176,6 +175,70 @@ class VerificationTest(BackupPrivateTestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         remaining = self._remaining(self.icloud_root)
         self.assertLess(len(remaining), len(old_names) + 1)
+
+
+class VerificationEmptySourceTest(BackupPrivateTestCase):
+    """Verification is source-relative: an empty source producing an empty
+    destination is an expected pass, not a failure. Regression coverage for
+    the 2026-09-10 false alarm, where a genuinely empty notes/ made every
+    single run fail verification and skip pruning."""
+
+    def _verify(self, src_paths: dict, dst_paths: dict):
+        src = self.project_dir / "vsrc"
+        dst = self.project_dir / "vdst"
+        for rel, content in src_paths.items():
+            path = src / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if content is None:
+                path.mkdir(exist_ok=True)
+            else:
+                path.write_text(content)
+        for rel, content in dst_paths.items():
+            path = dst / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if content is None:
+                path.mkdir(exist_ok=True)
+            else:
+                path.write_text(content)
+        return self.run_script("--verify-only", str(src), str(dst))
+
+    def test_empty_source_and_empty_destination_passes(self):
+        proc = self._verify({"notes": None}, {"notes": None})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("empty_ok:notes", proc.stdout)
+
+    def test_non_empty_source_and_empty_destination_fails(self):
+        (self.project_dir / "vsrc" / "notes").mkdir(parents=True)
+        proc = self._verify({"notes/idea.md": "note"}, {"notes": None})
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("notes landed empty", proc.stdout + proc.stderr)
+
+    def test_destination_path_missing_entirely_fails(self):
+        proc = self._verify({"notes/idea.md": "note"}, {})
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("did not land in the backup", proc.stdout + proc.stderr)
+
+    def test_an_empty_source_still_allows_prune_to_run(self):
+        """The bug this fixes: verification failing on a legitimately empty
+        path blocked pruning on every run, forever. A pass with an empty
+        source must not have that side effect."""
+        data = self.fixture_root / "data"
+        data.mkdir()
+        (data / "companies.csv").write_text("name\na\n")
+        (data / "known_good.csv").write_text("role\nx\n")
+        (self.fixture_root / "signals").mkdir()  # genuinely empty
+        (self.fixture_root / "notes").mkdir()  # genuinely empty
+
+        old_names = _series(40)
+        self._make_dated_dirs(self.icloud_root, old_names)
+
+        proc = self.run_script(root=self.icloud_root)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("verification failed", proc.stdout + proc.stderr)
+        remaining = self._remaining(self.icloud_root)
+        self.assertLess(len(remaining), len(old_names) + 1,
+                        "prune should have run and removed the oldest backups")
 
 
 class RunlockTest(BackupPrivateTestCase):
