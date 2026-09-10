@@ -27,10 +27,11 @@
 #     lands in the same logs/<date>.jsonl schema every pipeline stage uses,
 #     instead of inventing a second log format.
 #
-# Two more additions beyond the spec's literal deliverables, both for
+# Test-only additions beyond the spec's literal deliverables, both for
 # testability: shell has no mocking, so `--prune-dir DIR [--dry-run]` exposes
-# the prune step standalone (used by tests/test_backup_private.py) instead of
-# only being reachable via a full, real backup run.
+# the prune step standalone, and `--verify-only SRC DST` exposes verification
+# standalone (both used by tests/test_backup_private.py) instead of only
+# being reachable via a full, real backup run.
 #
 # And one gap worth knowing rather than working around: SCOUT_BACKUP_ROOT is
 # resolved with a `:-` default below, which means by the time prune runs in
@@ -42,6 +43,11 @@ set -eu
 
 SCOUT_BACKUP_ROOT="${SCOUT_BACKUP_ROOT:-$HOME/Library/Mobile Documents/com~apple~CloudDocs/scout-backups}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Separate from $ROOT on purpose: alert_failure/runlock_held/log_jsonl all
+# use $ROOT/scripts to find the real pipeline package, so --verify-only
+# (below) must never repoint $ROOT itself - only where the private paths are
+# read from.
+BACKUP_SRC="$ROOT"
 RETAIN_BACKUPS=30
 DATE_RE='^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$'
 
@@ -77,13 +83,15 @@ _notify(sys.argv[3], title=sys.argv[2], priority='high')
 
 log_jsonl() {
   # $1 message, $2 paths copied (comma-separated), $3 bytes, $4 folders
-  # pruned (comma-separated), $5 outcome.
+  # pruned (comma-separated), $5 outcome, $6 paths where source and
+  # destination were both legitimately empty (comma-separated) - an expected
+  # pass, logged for visibility, not alert-worthy.
   run_date="$(date +%Y-%m-%d)"
   python3 -c "
 import sys
 sys.path.insert(0, sys.argv[1])
 from pipeline import logging_setup
-run_date, message, paths_copied, nbytes, pruned, outcome = sys.argv[2:8]
+run_date, message, paths_copied, nbytes, pruned, outcome, empty_ok = sys.argv[2:9]
 logger = logging_setup.get_logger(run_date)
 logging_setup.log(
     logger, 'backup', message,
@@ -91,8 +99,9 @@ logging_setup.log(
     bytes=int(nbytes),
     pruned=[p for p in pruned.split(',') if p],
     outcome=outcome,
+    empty_ok=[p for p in empty_ok.split(',') if p],
 )
-" "$ROOT/scripts" "$run_date" "$1" "$2" "$3" "$4" "$5"
+" "$ROOT/scripts" "$run_date" "$1" "$2" "$3" "$4" "$5" "$6"
 }
 
 preflight() {
@@ -111,7 +120,7 @@ do_copy() {
   mkdir -p "$DEST"
   copied=""
   for rel in $BACKUP_PATHS; do
-    src="$ROOT/$rel"
+    src="$BACKUP_SRC/$rel"
     [ -e "$src" ] || continue
     # rm before cp -R: for a directory source, cp -R into an existing
     # target *merges* rather than replaces, which would leave stale files
@@ -129,39 +138,56 @@ do_copy() {
 }
 
 do_verify() {
+  # Verification is source-relative: an empty source is a legitimate state
+  # (notes/ genuinely has nothing in it tonight, say), and an empty source
+  # producing an empty destination is a pass, not a failure. Only these fail:
+  #   - the path is missing at the destination entirely
+  #   - the source is non-empty but the destination is empty
+  #   - both are non-empty but the comparison (CSV line count) disagrees
   problems=""
+  empty_ok=""
   for rel in $BACKUP_PATHS; do
-    src="$ROOT/$rel"
+    src="$BACKUP_SRC/$rel"
     [ -e "$src" ] || continue
     dst="$DEST/$rel"
+
     if [ ! -e "$dst" ]; then
       problems="$problems
 $rel did not land in the backup"
       continue
     fi
-    if [ -f "$dst" ]; then
-      if [ ! -s "$dst" ]; then
-        problems="$problems
-$rel landed empty"
-        continue
-      fi
-      case "$rel" in
-        *.csv)
-          src_lines=$(wc -l < "$src" | tr -d ' ')
-          dst_lines=$(wc -l < "$dst" | tr -d ' ')
-          if [ "$src_lines" != "$dst_lines" ]; then
-            problems="$problems
-$rel line count mismatch: source $src_lines, backup $dst_lines"
-          fi
-          ;;
-      esac
-    elif [ -d "$dst" ]; then
-      if [ -z "$(find "$dst" -type f -print -quit)" ]; then
-        problems="$problems
-$rel landed empty"
-      fi
+
+    if [ -f "$src" ]; then
+      src_empty=0; [ -s "$src" ] || src_empty=1
+      dst_empty=0; [ -s "$dst" ] || dst_empty=1
+    else
+      src_empty=0; [ -n "$(find "$src" -type f -print -quit)" ] || src_empty=1
+      dst_empty=0; [ -n "$(find "$dst" -type f -print -quit)" ] || dst_empty=1
     fi
+
+    if [ "$src_empty" = 1 ] && [ "$dst_empty" = 1 ]; then
+      empty_ok="$empty_ok,$rel"
+      continue
+    fi
+
+    if [ "$dst_empty" = 1 ]; then
+      problems="$problems
+$rel landed empty"
+      continue
+    fi
+
+    case "$rel" in
+      *.csv)
+        src_lines=$(wc -l < "$src" | tr -d ' ')
+        dst_lines=$(wc -l < "$dst" | tr -d ' ')
+        if [ "$src_lines" != "$dst_lines" ]; then
+          problems="$problems
+$rel line count mismatch: source $src_lines, backup $dst_lines"
+        fi
+        ;;
+    esac
   done
+  empty_ok="${empty_ok#,}"
   if [ -n "$problems" ]; then
     alert_failure "scout backup verification failed" "$problems"
     echo "backup_private: verification failed:$problems" >&2
@@ -211,7 +237,7 @@ run_backup() {
   preflight
 
   if runlock_held; then
-    log_jsonl "skipped: pipeline run in progress" "" 0 "" "skipped"
+    log_jsonl "skipped: pipeline run in progress" "" 0 "" "skipped" ""
     echo "backup_private: pipeline run in progress, skipping"
     exit 0
   fi
@@ -224,7 +250,7 @@ run_backup() {
           | awk '{s+=$1} END {print s+0}')
   outcome="ok"
   [ "$dry_run" = "1" ] && outcome="dry-run"
-  log_jsonl "backup complete" "$copied" "$bytes" "$pruned" "$outcome"
+  log_jsonl "backup complete" "$copied" "$bytes" "$pruned" "$outcome" "$empty_ok"
   echo "backup_private: wrote $DEST"
 }
 
@@ -235,6 +261,19 @@ case "${1:-}" in
     dry=0
     [ "${3:-}" = "--dry-run" ] && dry=1
     prune_dir "${2:-}" "$dry" >/dev/null
+    ;;
+  --verify-only)
+    # Internal - exercises do_verify() standalone against an explicit
+    # source dir ($2, in place of $BACKUP_SRC) and destination dir ($3, in
+    # place of $DEST), skipping copy entirely. Used by
+    # tests/test_backup_private.py to reach destination states copy itself
+    # would never produce (e.g. a path missing from the destination while
+    # present in the source). $ROOT itself is untouched, since alert_failure
+    # still needs it to find the real pipeline package.
+    BACKUP_SRC="${2:-}"
+    DEST="${3:-}"
+    do_verify
+    echo "empty_ok:$empty_ok"
     ;;
   --dry-run)
     run_backup 1

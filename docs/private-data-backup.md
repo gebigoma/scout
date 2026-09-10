@@ -16,6 +16,23 @@ folder under iCloud Drive, once a day, via a launchd job. A path missing from
 the source (e.g. a fresh clone with no `data/companies.csv` yet) is skipped,
 not a failure.
 
+## First-time setup
+
+The backup root must exist before the first run — the script does not create
+it:
+
+```
+mkdir -p ~/Library/Mobile\ Documents/com~apple~CloudDocs/scout-backups
+```
+
+This is a one-time step on any given machine (see [Preflight
+failure](#what-can-make-a-run-fail-and-alert) below for why it stays a manual
+step rather than an automatic `mkdir -p` inside the script): after the first
+run, a *missing* root almost always means iCloud Drive got unmounted, signed
+out, or the path got renamed — something worth noticing, not something to
+paper over by silently recreating an empty folder. Do this again on a new
+machine before the launchd job's first scheduled run there.
+
 ## Where backups land
 
 ```
@@ -83,10 +100,13 @@ Reuses the pipeline's existing ntfy helper (`NTFY_TOPIC`), high priority, on:
   isn't mounted or signed in on this machine, and creating a folder anyway
   would just start writing backups nothing is actually syncing.
 - **Copy failure** — an individual path failed to copy.
-- **Verification failure** — something landed empty, didn't land at all, or
-  (for the two CSVs) came out with a different line count than the source.
-  A verification failure blocks the prune step entirely for that run, so a
-  bad backup can never cause a good older one to be deleted.
+- **Verification failure** — verification is source-relative, so an empty
+  `notes/` or a `signals/` that's legitimately empty tonight is a pass, not a
+  failure. It only fails when: a path present in the source didn't land at
+  the destination at all; a *non-empty* source landed empty; or (for the two
+  CSVs) the line counts disagree. A verification failure blocks the prune
+  step entirely for that run, so a bad backup can never cause a good older
+  one to be deleted.
 
 There is no alert on success, and no alert when the run is skipped because
 the weekly pipeline's runlock is held (`logs/run.lock`) — that's an expected,
