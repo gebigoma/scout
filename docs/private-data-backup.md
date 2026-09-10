@@ -87,9 +87,25 @@ cp "$SCOUT_BACKUP_ROOT/2026-08-15/data/known_good.csv" data/known_good.csv
 scripts/backup_private.sh --dry-run
 ```
 
-Runs preflight, the runlock check, the copy, and verification exactly as a
-real run would — the only difference is the prune step logs what it *would*
-delete instead of deleting it. Nothing is deleted in dry-run mode.
+Makes no filesystem change at all — no dated folder is created, nothing is
+copied, nothing is deleted, and nothing is logged. It runs preflight and the
+runlock check for real (both are read-only), then reports:
+
+- whether preflight passed and the runlock is free
+- which paths would be copied, and to the dated folder for today
+- which existing dated folders would be pruned, and which are preserved —
+  either as a monthly anchor or as one of the 30 most recent
+- a closing `DRY RUN — nothing was written or deleted` line, always printed,
+  even when there's nothing to prune
+
+Verification is skipped in dry-run: there's nothing new copied to check, and
+running it against whatever a previous *real* run left in today's folder
+would report on a copy that didn't happen.
+
+Any argument other than `--dry-run` or `--help` (including a stray extra
+argument after one of those) exits non-zero with a usage message rather than
+being silently ignored — a typo that fell through unnoticed is exactly how
+`--dry-run` performing a real backup went undetected.
 
 ## What can make a run fail (and alert)
 

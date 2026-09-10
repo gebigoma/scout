@@ -302,5 +302,95 @@ class CopyAndLogTest(BackupPrivateTestCase):
         self.assertTrue((dated / "data" / "known_good.csv").exists())
 
 
+class DryRunTest(BackupPrivateTestCase):
+    """Regression coverage for --dry-run actually performing a real backup:
+    it called do_copy() unconditionally and only threaded dry_run into the
+    prune step, so a dry run wrote a real dated folder and only skipped
+    deletion. Nothing in the original suite exercised the top-level
+    --dry-run flag at all, which is how that shipped unnoticed."""
+
+    def _seed_source(self):
+        data = self.fixture_root / "data"
+        data.mkdir()
+        (data / "companies.csv").write_text("name\na\n")
+        (data / "known_good.csv").write_text("role\nx\n")
+        (self.fixture_root / "signals").mkdir()
+        (self.fixture_root / "signals" / "2026-09-10.md").write_text("# w")
+        (self.fixture_root / "notes").mkdir()
+        (self.fixture_root / "notes" / "idea.md").write_text("note")
+
+    def test_dry_run_creates_no_dated_folder_and_deletes_nothing(self):
+        self._seed_source()
+        old_names = _series(40)
+        anchor = "2019-06-01"
+        self._make_dated_dirs(self.icloud_root, old_names + [anchor])
+        before = self._remaining(self.icloud_root)
+
+        proc = self.run_script("--dry-run", root=self.icloud_root)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(self._remaining(self.icloud_root), before,
+                         "dry-run must not create today's folder or prune anything")
+        # Nothing was logged either - a dry run performs no writes at all,
+        # logging included.
+        self.assertEqual(list((self.fixture_root / "logs").glob("*.jsonl")), [])
+
+    def test_dry_run_reports_the_prune_plan_correctly(self):
+        self._seed_source()
+        old_names = _series(40)
+        anchor = "2019-06-01"
+        self._make_dated_dirs(self.icloud_root, old_names + [anchor])
+
+        proc = self.run_script("--dry-run", root=self.icloud_root)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        output = proc.stdout + proc.stderr
+
+        self.assertIn("DRY RUN", output)
+        self.assertIn("would copy data/companies.csv", output)
+        self.assertIn(f"would keep {self.icloud_root}/{anchor} (monthly anchor)", output)
+        # The 30 most recent non-anchor folders are kept...
+        for name in sorted(old_names)[-30:]:
+            self.assertIn(f"would keep {self.icloud_root}/{name} (within most recent 30)",
+                         output)
+        # ...and the 10 oldest of the 40 are reported for deletion.
+        for name in sorted(old_names)[:10]:
+            self.assertIn(f"would delete {self.icloud_root}/{name}", output)
+
+    def test_dry_run_reports_preflight_and_runlock_state(self):
+        self._seed_source()
+        proc = self.run_script("--dry-run", root=self.icloud_root)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        output = proc.stdout + proc.stderr
+        self.assertIn("preflight ok", output)
+        self.assertIn("runlock is free", output)
+
+    def test_dry_run_still_reports_when_there_is_nothing_to_prune(self):
+        """An empty backup root is a legitimate first-ever run - dry-run
+        must say so, not print nothing."""
+        self._seed_source()
+        proc = self.run_script("--dry-run", root=self.icloud_root)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("DRY RUN", proc.stdout + proc.stderr)
+
+
+class ArgumentHandlingTest(BackupPrivateTestCase):
+    def test_an_unrecognized_flag_exits_non_zero(self):
+        proc = self.run_script("--bogus")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("usage", proc.stderr)
+
+    def test_a_stray_extra_argument_after_dry_run_exits_non_zero(self):
+        """The exact failure mode this fix targets: a mistyped second flag
+        must not be silently ignored and fall through to a real run."""
+        proc = self.run_script("--dry-run", "--oops", root=self.icloud_root)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(self._remaining(self.icloud_root), [])
+
+    def test_help_prints_usage_and_exits_zero(self):
+        proc = self.run_script("--help")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("usage", proc.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
