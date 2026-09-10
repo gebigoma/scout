@@ -117,11 +117,22 @@ preflight() {
 }
 
 do_copy() {
-  mkdir -p "$DEST"
+  # $1 = "1" for dry-run else "0". Dry-run makes no filesystem change at
+  # all - not even $DEST itself - it only reports which of BACKUP_PATHS are
+  # present in the source and so would be copied.
+  dry_run="$1"
   copied=""
   for rel in $BACKUP_PATHS; do
     src="$BACKUP_SRC/$rel"
     [ -e "$src" ] || continue
+
+    if [ "$dry_run" = "1" ]; then
+      echo "backup_private: [dry-run] would copy $rel -> $DEST/$rel"
+      copied="$copied,$rel"
+      continue
+    fi
+
+    mkdir -p "$DEST"
     # rm before cp -R: for a directory source, cp -R into an existing
     # target *merges* rather than replaces, which would leave stale files
     # behind from an earlier backup today after a real deletion upstream.
@@ -214,6 +225,8 @@ prune_dir() {
     [ -d "$root/$name" ] || continue
     day="${name#*-*-}"
     if [ "$day" = "01" ]; then
+      [ "$dry_run" = "1" ] \
+        && echo "backup_private: [dry-run] would keep $root/$name (monthly anchor)" >&2
       continue  # monthly anchor - never counted, never pruned
     fi
     count=$((count + 1))
@@ -224,34 +237,70 @@ prune_dir() {
         rm -rf "${root:?}/${name:?}"
       fi
       pruned="$pruned,$name"
+    elif [ "$dry_run" = "1" ]; then
+      echo "backup_private: [dry-run] would keep $root/$name (within most recent $RETAIN_BACKUPS)" >&2
     fi
   done
   echo "${pruned#,}"
 }
 
 run_backup() {
+  # dry_run is threaded through every step that can touch disk (do_copy,
+  # prune_dir) rather than just prune_dir, and do_verify/log_jsonl are
+  # skipped outright in dry-run - verifying or logging against a copy that
+  # was never made would either read stale content from an earlier real run
+  # today or write a log line describing a run that didn't happen. Either
+  # way it's the same bug this fix exists for: --dry-run "reporting"
+  # something it did not actually check.
   dry_run="$1"
   RUN_DATE="$(date +%Y-%m-%d)"
   DEST="$SCOUT_BACKUP_ROOT/$RUN_DATE"
 
   preflight
+  [ "$dry_run" = "1" ] \
+    && echo "backup_private: [dry-run] preflight ok - $SCOUT_BACKUP_ROOT exists and is writable"
 
   if runlock_held; then
+    if [ "$dry_run" = "1" ]; then
+      echo "backup_private: [dry-run] pipeline runlock is held - a real run would skip entirely"
+      echo "DRY RUN - nothing was written or deleted"
+      exit 0
+    fi
     log_jsonl "skipped: pipeline run in progress" "" 0 "" "skipped" ""
     echo "backup_private: pipeline run in progress, skipping"
     exit 0
   fi
+  [ "$dry_run" = "1" ] && echo "backup_private: [dry-run] pipeline runlock is free"
 
-  do_copy
+  do_copy "$dry_run"
+
+  if [ "$dry_run" = "1" ]; then
+    echo "backup_private: [dry-run] would write to $DEST"
+    prune_dir "$SCOUT_BACKUP_ROOT" 1 >/dev/null
+    echo "DRY RUN - nothing was written or deleted"
+    exit 0
+  fi
+
   do_verify
 
-  pruned="$(prune_dir "$SCOUT_BACKUP_ROOT" "$dry_run")"
+  pruned="$(prune_dir "$SCOUT_BACKUP_ROOT" 0)"
   bytes=$(find "$DEST" -type f -exec stat -f%z {} \; 2>/dev/null \
           | awk '{s+=$1} END {print s+0}')
-  outcome="ok"
-  [ "$dry_run" = "1" ] && outcome="dry-run"
-  log_jsonl "backup complete" "$copied" "$bytes" "$pruned" "$outcome" "$empty_ok"
+  log_jsonl "backup complete" "$copied" "$bytes" "$pruned" "ok" "$empty_ok"
   echo "backup_private: wrote $DEST"
+}
+
+usage() {
+  cat <<USAGE
+usage: $(basename "$0") [--dry-run] | --help
+
+Backs up data/companies.csv, data/known_good.csv, signals/, and notes/ into
+a dated folder under \$SCOUT_BACKUP_ROOT (currently: $SCOUT_BACKUP_ROOT).
+
+  (no arguments)   run the backup for real
+  --dry-run        report what would happen; makes no filesystem change
+  --help           show this message
+USAGE
 }
 
 case "${1:-}" in
@@ -276,13 +325,26 @@ case "${1:-}" in
     echo "empty_ok:$empty_ok"
     ;;
   --dry-run)
+    # A bare --dry-run only - a stray trailing argument (a typo'd second
+    # flag, most plausibly) must not be silently ignored: that's exactly
+    # how a typo turns into an unnoticed real run.
+    if [ $# -ne 1 ]; then
+      usage >&2
+      exit 2
+    fi
     run_backup 1
+    ;;
+  --help)
+    usage
     ;;
   "")
     run_backup 0
     ;;
   *)
-    echo "usage: $0 [--dry-run]" >&2
+    # Any unrecognized argument, including a mistyped flag. Silently falling
+    # through to a real run here is the exact failure mode this file's
+    # --dry-run bug shared: an argument that looked handled wasn't.
+    usage >&2
     exit 2
     ;;
 esac
