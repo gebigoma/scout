@@ -19,17 +19,22 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 # git limit on purpose: nothing this repo legitimately tracks is near it.
 MAX_FILE_BYTES = 2 * 1024 * 1024
 
-# Two kinds of thing that must stay out of git, both gitignored, so either can
-# only show up staged via an explicit `git add -f`:
+# Three kinds of thing that must stay out of git, all gitignored, so any of
+# them can only show up staged via an explicit `git add -f`:
 #   - generated per-run output, which is scratch rather than deliverable;
-#   - the three private files. This is a public repo, and each names specific
-#     companies: signals/ ranks them by how close they look to hiring,
-#     companies.csv is the watchlist it's computed from, and known_good.csv
-#     records reqs worth applying to that the pipeline failed to surface.
-#     Keeping the stages but not their artifacts is the point; see digest.run.
+#   - the three private, hand-maintained files. This is a public repo, and
+#     each names specific companies: signals/ ranks them by how close they
+#     look to hiring, companies.csv is the watchlist it's computed from, and
+#     known_good.csv records reqs worth applying to that the pipeline failed
+#     to surface. Keeping the stages but not their artifacts is the point;
+#     see digest.run.
+#   - data/corpus/ (spec 01): third-party job-posting text captured for the
+#     first_tpm eval - not scratch (retention.sweep never prunes it) and not
+#     hand-maintained, but still not this repo's to publish.
 NEVER_COMMIT = ("data/raw/", "data/runs/", "logs/", "__pycache__/",
                 ".DS_Store", ".claude/settings.local.json", "Claude.dmg",
-                "signals/", "data/companies.csv", "data/known_good.csv")
+                "signals/", "data/companies.csv", "data/known_good.csv",
+                "data/corpus/")
 
 # `worktree-agent-abbbb31faaf724ad2` and friends became PR titles. Require a
 # type prefix and a human-readable slug instead.

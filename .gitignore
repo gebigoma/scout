@@ -12,3 +12,6 @@ signals/
 data/companies.csv
 data/known_good.csv
 notes/
+# Third-party job-posting text captured for the first_tpm eval corpus (spec
+# 01) - not this repo's to publish, and never pruned by retention.sweep.
+data/corpus/

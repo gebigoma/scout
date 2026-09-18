@@ -54,6 +54,12 @@ class NeverCommitTest(unittest.TestCase):
         """'data/rawest.csv' is not under 'data/raw/'."""
         self.assertEqual(hygiene.check_never_commit(["data/rawest.csv"]), [])
 
+    def test_the_eval_corpus_is_rejected(self):
+        """Third-party job-posting text (spec 01) - not scratch, not
+        hand-maintained, but still not this repo's to publish."""
+        self.assertEqual(
+            len(hygiene.check_never_commit(["data/corpus/2026-08-10.jsonl"])), 1)
+
 
 class ConflictMarkerTest(unittest.TestCase):
     def test_clean_text_passes(self):
