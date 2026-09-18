@@ -205,6 +205,30 @@ LEVER_JOB = {
 }
 
 
+def ats_listing(url, **overrides):
+    """A normalized first_tpm-lane listing, as normalize._normalize_ats
+    emits it - the shape corpus.py reads (match_text included, unlike
+    fractional listings from `listing()` above)."""
+    base = {
+        "source": "greenhouse:acmerobotics",
+        "title": "Founding Technical Program Manager",
+        "company": "Acme Robotics",
+        "url": url,
+        "posted_date": "2026-08-02T15:57:11+00:00",
+        "snippet": "You will be our first TPM hire, establishing the program "
+                  "management function from scratch.",
+        "match_text": "You will be our first TPM hire, establishing the "
+                      "program management function from scratch.",
+        "tags": [],
+        "lane": "first_tpm",
+        "headcount": 85,
+        "location_text": "Remote (US)",
+        "location_country_code": "US",
+    }
+    base.update(overrides)
+    return base
+
+
 def verdict(id_, verdict="match", role_category="senior_tpm", **overrides):
     """A single chunk-response entry, as the model returns it."""
     base = {"id": id_, "verdict": verdict}

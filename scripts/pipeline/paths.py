@@ -15,6 +15,17 @@ def atomic_write_json(path: Path, obj) -> None:
     os.replace(tmp, path)
 
 
+def atomic_write_jsonl(path: Path, rows) -> None:
+    """Same discipline as atomic_write_json, for line-delimited JSON: a temp
+    file + os.replace so a corpus file is never observed half-written. A
+    sibling of atomic_write_json rather than a bent version of it, since
+    JSONL wants one compact object per line (hand-appendable later) instead
+    of one indented document."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    os.replace(tmp, path)
+
+
 def run_dir(run_date: str) -> Path:
     d = PROJECT_DIR / "data" / "runs" / run_date
     d.mkdir(parents=True, exist_ok=True)
@@ -55,6 +66,16 @@ def matches_path(run_date: str) -> Path:
 
 def signals_path(run_date: str) -> Path:
     return PROJECT_DIR / "signals" / f"{run_date}.md"
+
+
+def corpus_dir() -> Path:
+    d = PROJECT_DIR / "data" / "corpus"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def corpus_path(run_date: str) -> Path:
+    return corpus_dir() / f"{run_date}.jsonl"
 
 
 def role_criteria_path(lane: str = "fractional") -> Path:
