@@ -262,11 +262,13 @@ class RunlockTest(BackupPrivateTestCase):
 
 
 class CopyAndLogTest(BackupPrivateTestCase):
-    def test_a_successful_run_copies_all_four_paths_and_logs_jsonl(self):
+    def test_a_successful_run_copies_all_five_paths_and_logs_jsonl(self):
         data = self.fixture_root / "data"
         data.mkdir()
         (data / "companies.csv").write_text("name\na\n")
         (data / "known_good.csv").write_text("role\nx\n")
+        (data / "corpus").mkdir()
+        (data / "corpus" / "2026-09-09.jsonl").write_text('{"url": "https://x/1"}\n')
         (self.fixture_root / "signals").mkdir()
         (self.fixture_root / "signals" / "2026-09-09.md").write_text("# w")
         (self.fixture_root / "notes").mkdir()
@@ -278,6 +280,7 @@ class CopyAndLogTest(BackupPrivateTestCase):
         [dated] = list(self.icloud_root.iterdir())
         self.assertTrue((dated / "data" / "companies.csv").exists())
         self.assertTrue((dated / "data" / "known_good.csv").exists())
+        self.assertTrue((dated / "data" / "corpus" / "2026-09-09.jsonl").exists())
         self.assertTrue((dated / "signals" / "2026-09-09.md").exists())
         self.assertTrue((dated / "notes" / "idea.md").exists())
 
@@ -287,7 +290,7 @@ class CopyAndLogTest(BackupPrivateTestCase):
         self.assertEqual(entry["outcome"], "ok")
         self.assertEqual(sorted(entry["paths"]),
                          sorted(["data/companies.csv", "data/known_good.csv",
-                                 "signals", "notes"]))
+                                 "data/corpus", "signals", "notes"]))
 
     def test_a_missing_optional_path_is_skipped_not_a_failure(self):
         """A fresh clone has no data/companies.csv yet - see CLAUDE.md."""

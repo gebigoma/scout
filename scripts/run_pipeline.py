@@ -16,9 +16,9 @@ import json
 import sys
 from datetime import date
 
-from pipeline import (alert, classify, company_signals, dedupe, digest, fetch,
-                      fetch_ats, lanes, manifest, normalize, paths, prefilter,
-                      retention, runlock, score)
+from pipeline import (alert, classify, company_signals, corpus, dedupe, digest,
+                      fetch, fetch_ats, lanes, manifest, normalize, paths,
+                      prefilter, retention, runlock, score)
 
 
 def load_checkpoint(run_date: str, stage: str):
@@ -81,6 +81,17 @@ def run_stages(run_date, stage_output):
         dedupe_cp = stage_output("dedupe", dedupe.run, prefilter_cp)
         classify_cp = stage_output("classify", classify.run, dedupe_cp)
         score_cp = stage_output("score", score.run, classify_cp)
+
+        # Not a checkpointed stage (never add "corpus" to manifest.STAGES)
+        # and must never cost a run its digest - wrapped the way
+        # retention.sweep is wrapped below: catch, print to stderr, continue.
+        # Runs after score (so score's fields are populated) and before
+        # digest, per spec 01.
+        try:
+            corpus.run(run_date, normalize_cp, prefilter_cp, dedupe_cp, classify_cp, score_cp)
+        except Exception as e:
+            print(f"[corpus] skipped: {e}", file=sys.stderr)
+
         signals_cp = (stage_output("company_signals", company_signals.run, fetch_ats_cp)
                      if fetch_ats_cp else None)
         digest_cp = stage_output("digest", digest.run, dedupe_cp, score_cp, active)
