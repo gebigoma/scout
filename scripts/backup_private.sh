@@ -53,8 +53,12 @@ DATE_RE='^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$'
 
 # Relative to $ROOT. A path missing from the source (e.g. a fresh clone with
 # no data/companies.csv yet) is skipped, not a failure - see CLAUDE.md on
-# that file being legitimately absent.
-BACKUP_PATHS="data/companies.csv data/known_good.csv signals notes"
+# that file being legitimately absent. data/corpus is the first_tpm eval
+# corpus (spec 01): unlike the CSVs it's never pruned by retention.sweep, so
+# this backup is defense in depth rather than the only copy - but the ATS
+# payloads it's built from are gone the moment a req closes, so losing it
+# between backups would still be unrecoverable, same as the CSVs.
+BACKUP_PATHS="data/companies.csv data/known_good.csv data/corpus signals notes"
 
 runlock_held() {
   # Exit 0 (shell "true") if the pipeline's lock is held, 1 if it's free.

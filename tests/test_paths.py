@@ -78,6 +78,51 @@ class PathLayoutTest(PipelineTestCase):
     def test_role_criteria_path_defaults_to_the_fractional_lane(self):
         self.assertEqual(paths.role_criteria_path(),
                          self.project_dir / "ROLE_CRITERIA.md")
+
+    def test_corpus_dir_is_created_on_demand(self):
+        d = paths.corpus_dir()
+        self.assertTrue(d.is_dir())
+        self.assertEqual(d, self.project_dir / "data" / "corpus")
+
+    def test_corpus_path_lives_under_the_corpus_dir(self):
+        p = paths.corpus_path("2026-08-03")
+        self.assertEqual(p.name, "2026-08-03.jsonl")
+        self.assertEqual(p.parent, paths.corpus_dir())
+
+
+class AtomicWriteJsonlTest(PipelineTestCase):
+    def test_writes_one_compact_json_object_per_line(self):
+        path = self.project_dir / "out.jsonl"
+        paths.atomic_write_jsonl(path, [{"a": 1}, {"b": 2}])
+        lines = path.read_text().splitlines()
+        self.assertEqual([json.loads(l) for l in lines], [{"a": 1}, {"b": 2}])
+
+    def test_empty_rows_writes_an_empty_file(self):
+        path = self.project_dir / "out.jsonl"
+        paths.atomic_write_jsonl(path, [])
+        self.assertEqual(path.read_text(), "")
+
+    def test_leaves_no_temp_file_behind(self):
+        path = self.project_dir / "out.jsonl"
+        paths.atomic_write_jsonl(path, [{"a": 1}])
+        self.assertEqual([p.name for p in self.project_dir.iterdir()], ["out.jsonl"])
+
+    def test_overwrites_existing_file_completely_not_appending(self):
+        path = self.project_dir / "out.jsonl"
+        paths.atomic_write_jsonl(path, [{"a": 1}, {"a": 2}, {"a": 3}])
+        paths.atomic_write_jsonl(path, [{"a": "new"}])
+        lines = path.read_text().splitlines()
+        self.assertEqual([json.loads(l) for l in lines], [{"a": "new"}])
+
+    def test_failure_mid_write_leaves_previous_content_intact(self):
+        path = self.project_dir / "out.jsonl"
+        paths.atomic_write_jsonl(path, [{"good": True}])
+
+        with mock.patch.object(paths.os, "replace", side_effect=OSError("boom")):
+            with self.assertRaises(OSError):
+                paths.atomic_write_jsonl(path, [{"bad": True}])
+
+        self.assertEqual(json.loads(path.read_text().strip()), {"good": True})
         self.assertEqual(paths.role_criteria_path("fractional"),
                          self.project_dir / "ROLE_CRITERIA.md")
 

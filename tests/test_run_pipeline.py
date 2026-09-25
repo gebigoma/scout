@@ -6,8 +6,8 @@ from datetime import date as real_date
 from unittest import mock
 
 import run_pipeline
-from pipeline import (alert, classify, dedupe, digest, fetch, fetch_ats, lanes,
-                      manifest, normalize, paths, prefilter, score)
+from pipeline import (alert, classify, corpus, dedupe, digest, fetch, fetch_ats,
+                      lanes, manifest, normalize, paths, prefilter, score)
 
 from .support import RUN_DATE, PipelineTestCase
 
@@ -19,12 +19,16 @@ STAGE_OUTPUTS = {
     "dedupe": {"listings": []},
     "classify": {"matches": []},
     "score": {"scored": []},
+    # Not a real checkpoint - corpus.run() is called directly, never through
+    # stage_output, so nothing ever reads data/runs/<date>/corpus.json back.
+    # Present here only so _write_checkpoint("corpus") is harmless if used.
+    "corpus": {"path": "data/corpus/2026-08-03.jsonl", "count": 0, "classify_verdict_gaps": 0},
     "digest": {"matches": 0, "rejected": 0, "committed": True, "pushed": True},
 }
 
 STAGE_MODULES = [("fetch", fetch), ("fetch_ats", fetch_ats), ("normalize", normalize),
                  ("prefilter", prefilter), ("dedupe", dedupe), ("classify", classify),
-                 ("score", score), ("digest", digest)]
+                 ("score", score), ("corpus", corpus), ("digest", digest)]
 
 
 class LoadCheckpointTest(PipelineTestCase):
@@ -84,6 +88,27 @@ class MainTest(PipelineTestCase):
         self.stages["digest"].assert_called_once_with(
             RUN_DATE, STAGE_OUTPUTS["dedupe"], STAGE_OUTPUTS["score"],
             [lanes.FRACTIONAL, lanes.FIRST_TPM])
+
+    def test_corpus_runs_after_score_with_every_upstream_checkpoint(self):
+        """Not a checkpointed stage - called directly with the in-memory
+        checkpoints, not through stage_output - but score's fields must
+        already be populated by the time it runs (spec 01)."""
+        self._main("--date", RUN_DATE)
+        self.stages["corpus"].assert_called_once_with(
+            RUN_DATE, STAGE_OUTPUTS["normalize"], STAGE_OUTPUTS["prefilter"],
+            STAGE_OUTPUTS["dedupe"], STAGE_OUTPUTS["classify"], STAGE_OUTPUTS["score"])
+
+    def test_a_corpus_failure_does_not_fail_the_run_or_skip_digest(self):
+        """A corpus bug must cost a week of eval data, never a published
+        digest - digest still runs, the run still succeeds, and the failure
+        is only ever printed, never raised or alerted on."""
+        self.stages["corpus"].side_effect = RuntimeError("bad companies.csv")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            self._main("--date", RUN_DATE)
+        self.assertIn("bad companies.csv", err.getvalue())
+        self.stages["digest"].assert_called_once()
+        self.assertEqual(manifest.load(RUN_DATE)["status"], "success")
+        self.send_failure_alert.assert_not_called()
 
     def test_resumes_from_the_first_stage_without_a_checkpoint(self):
         """A failure at classify must not force a re-fetch of everything."""

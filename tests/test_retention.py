@@ -112,6 +112,22 @@ class SweepTest(RetentionTestCase):
         self.assertTrue(paths.seen_path().exists())
         self.assertTrue(paths.matches_path("2026-08-01").exists())
 
+    def test_the_eval_corpus_is_never_pruned(self):
+        """data/corpus/<date>.jsonl (spec 01) is deliberately kept forever -
+        unlike matches/ and seen.json it isn't outside the swept trees by
+        directory (data/) and its filenames are dated exactly like
+        data/raw/<date>.json's, the one thing here that IS pruned on this
+        schedule - so this is a regression guard on the one path that could
+        plausibly get caught by a future edit to _dated_entries, not just a
+        restatement that sweep() only lists data/runs/ and data/raw/."""
+        for day in range(1, 6):
+            paths.corpus_path(f"2026-08-0{day}").write_text('{"url": "https://x/1"}\n')
+        for day in range(1, 6):
+            self._make_run(f"2026-08-0{day}")
+        retention.sweep("2026-08-05", retain=1)
+        for day in range(1, 6):
+            self.assertTrue(paths.corpus_path(f"2026-08-0{day}").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
