@@ -156,7 +156,39 @@ def _worktree_bytes(path: str) -> bytes:
     return full.read_bytes() if full.is_file() else b""
 
 
+class MissingRevisionError(Exception):
+    """Raised when a rev-list range's left side isn't a commit this clone
+    has.
+
+    `.githooks/pre-push` hands push-to-main the *actual current remote sha*
+    on stdin - not this clone's (possibly stale) tracking ref - so when
+    origin/main has advanced since the last fetch, that sha is simply absent
+    from the local object store. `git rev-list <missing>..<local>` then exits
+    128 with "fatal: Invalid revision range", and because `_git` uses
+    `check=True` that raised an unhandled CalledProcessError straight through
+    the hook - a traceback instead of a hygiene message, on the 2026-09-28
+    scheduled run (PR #32 merged on GitHub 2026-09-25 without this laptop
+    ever fetching). See the CLAUDE.md entry for that date.
+    """
+
+    def __init__(self, missing_sha: str):
+        self.missing_sha = missing_sha
+        super().__init__(missing_sha)
+
+
+def _commit_exists(sha: str) -> bool:
+    return subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+                          cwd=PROJECT_DIR, capture_output=True).returncode == 0
+
+
 def _commits_in_range(rev_range: str) -> list:
+    # A two-dot range's left side has to actually be resolvable locally
+    # before asking rev-list to walk it - see MissingRevisionError. A bare
+    # sha (the initial-push case, no left side) needs no such check: it's
+    # HEAD, which by definition this clone has.
+    parts = rev_range.split("..")
+    if len(parts) == 2 and parts[0] and not _commit_exists(parts[0]):
+        raise MissingRevisionError(parts[0])
     shas = _git("rev-list", rev_range).split()
     commits = []
     for sha in shas:
@@ -199,8 +231,17 @@ def main(argv) -> int:
         return _report(check_branch_name(branch), "Branch name:")
 
     if command == "push-to-main":
-        problems = check_main_push(_commits_in_range(argv[2]))
-        return _report(problems, "Blocked this push to main:")
+        try:
+            commits = _commits_in_range(argv[2])
+        except MissingRevisionError as e:
+            return _report(
+                [f"origin/main has moved to a commit ({e.missing_sha[:12]}) this "
+                 f"clone has never fetched, so the digest-vs-not-digest check "
+                 f"can't be evaluated - and the push would be rejected as "
+                 f"non-fast-forward regardless. Run 'git fetch origin' and "
+                 f"integrate origin/main (rebase or merge) before pushing again."],
+                "Blocked this push to main:")
+        return _report(check_main_push(commits), "Blocked this push to main:")
 
     print(__doc__, file=sys.stderr)
     print("usage: hygiene.py {staged|tracked|branch [name]|push-to-main <range>}",

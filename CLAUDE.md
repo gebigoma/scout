@@ -75,7 +75,10 @@ Supporting modules: `paths.py` (all filesystem locations — never hardcode a
 path elsewhere, tests repoint `PROJECT_DIR`), `manifest.py` (per-run
 status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.jsonl`),
 `retry.py`, `runlock.py`, `retention.py`, `alert.py` (ntfy.sh; topic from
-`NTFY_TOPIC`, set in the launchd job, not in this repo).
+`NTFY_TOPIC`, set in the launchd job, not in this repo), `textutil.py`
+(`elide_middle` — the one shared, dependency-free text helper; `llm.py` and
+`digest.py` both use it for failure diagnostics without either importing the
+other).
 
 ## Invariants worth knowing before changing things
 
@@ -214,6 +217,51 @@ status/timing/counts), `logging_setup.py` (structured JSONL to `logs/<date>.json
   `digest.GitError` subclasses `CalledProcessError` on purpose, because
   `_current_branch` and `_unpushed_commit_count` treat a non-zero git exit as
   an expected answer and catch it.
+- **A stale tracking ref crashed the hygiene check instead of just failing
+  the push, and truncation can eat the cause from either direction.** The
+  2026-09-28 scheduled run: PR #32 merged on GitHub 2026-09-25, advancing
+  remote `main` to `7916b47`, but this laptop's clone never fetched, so its
+  tracking ref (`origin/main`) stayed at the previous digest commit.
+  `_unpushed_commit_count` measures `@{u}..HEAD` against that stale ref, so a
+  clone that's behind still reports commits unpushed and `digest` pushed
+  straight into a guaranteed rejection. `.githooks/pre-push` is handed the
+  *actual* remote sha on stdin (not the tracking ref), built the range
+  `7916b47..<local>`, and `hygiene._commits_in_range` ran `git rev-list` on
+  it — but `7916b47` was never fetched, so it isn't in the local object
+  store, and `git rev-list` exits 128 with `fatal: Invalid revision range`.
+  `hygiene._git` uses `check=True`, so that raised an unhandled
+  `CalledProcessError` straight through the hook: a Python traceback on
+  stderr instead of a hygiene message, and the push was rejected with no
+  readable cause. The cause was then hidden a second time: `GitError.__str__`'s
+  `detail[:500]` is a *head* slice, and a traceback puts its cause (the final
+  `subprocess.CalledProcessError: ...` line) at the *end* — the opposite end
+  from where git's own `fatal:` lines land — so the one line that actually
+  named the problem was exactly the part cut off. Diagnosing it required
+  re-running the check by hand. Three fixes, none of which add a `git fetch`
+  to `digest` (that changes the stage's network behavior and is the owner's
+  call, not a diagnostics fix): `hygiene._commits_in_range` now checks the
+  range's left side with `git cat-file -e <sha>^{commit}` before calling
+  `rev-list`, and a missing sha becomes a `MissingRevisionError` routed
+  through the normal `_report` path — a readable message naming the sha and
+  the remedy (fetch, integrate, retry) — while *still blocking the push*: the
+  push would be rejected as non-fast-forward regardless, the point is only
+  that it says so legibly, not that it fails open or widens the range to
+  something that would flag already-published commits.
+  `textutil.elide_middle` replaces both head slices (`GitError.__str__`,
+  `llm.failure_detail`) with a helper that keeps *both* ends of a capped
+  string, because which end carries the cause depends on what produced the
+  text. And `digest._git`'s push call now recognizes git's non-fast-forward
+  rejection text and raises `RemoteAheadError` (a `GitError` subclass, so
+  `_current_branch` and `_unpushed_commit_count`'s existing `except
+  CalledProcessError` handling still catches it) stating plainly that the
+  remote has moved, the commit is stranded locally, and the next run needs an
+  integration before it can publish — rather than repeating the same
+  rejection indefinitely, which is the same failure shape as 2026-08-17.
+  `tests/test_githooks.py` reproduces the real scenario (a second clone
+  advances the shared bare remote, then a digest push is attempted from the
+  first, now-stale, clone) and asserts `"Traceback" not in proc.stderr` — that
+  assertion is what actually pins this bug; it fails against the pre-fix hook
+  with the exact traceback above.
 
 ## Repo hygiene
 

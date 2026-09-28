@@ -2,9 +2,12 @@
 every commit or silently stops enforcing anything. Test the rules directly;
 the git plumbing around them is exercised by the hooks themselves."""
 import unittest
+from unittest import mock
 
 import hygiene
 from pipeline import paths
+
+from .support import PipelineTestCase, git, init_repo_with_remote
 
 
 def _reader(contents):
@@ -164,6 +167,82 @@ class MainPushTest(unittest.TestCase):
 
     def test_pushing_nothing_is_fine(self):
         self.assertEqual(hygiene.check_main_push([]), [])
+
+
+class CommitsInRangeTest(PipelineTestCase):
+    """Covers _commits_in_range and push-to-main directly against a range
+    whose left side isn't a commit this clone has - the exact shape of the
+    2026-09-28 incident: .githooks/pre-push hands push-to-main the *actual*
+    remote sha on stdin, not this clone's stale tracking ref, so when
+    origin/main has moved since the last fetch that sha is simply absent
+    locally and `git rev-list <missing>..<local>` used to die with an
+    unhandled CalledProcessError (exit 128) instead of a hygiene message.
+    """
+
+    def setUp(self):
+        super().setUp()
+        init_repo_with_remote(self.project_dir)
+        patcher = mock.patch.object(hygiene, "PROJECT_DIR", self.project_dir)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_range_whose_left_side_is_a_local_commit_resolves_normally(self):
+        base = git("rev-parse", "HEAD", cwd=self.project_dir)
+        (self.project_dir / "matches").mkdir()
+        (self.project_dir / "matches" / "2026-08-10.md").write_text("# Matches\n")
+        git("add", "matches/2026-08-10.md", cwd=self.project_dir)
+        git("commit", "-m", "Weekly matches: 2026-08-10", cwd=self.project_dir)
+        head = git("rev-parse", "HEAD", cwd=self.project_dir)
+
+        commits = hygiene._commits_in_range(f"{base}..{head}")
+        self.assertEqual(len(commits), 1)
+        self.assertEqual(commits[0][0], "Weekly matches: 2026-08-10")
+
+    def test_a_bare_sha_with_no_left_side_needs_no_existence_check(self):
+        """pre-push builds this form (no remote sha) for a brand-new branch's
+        first push - there's nothing to validate; the single sha is HEAD,
+        which by definition this clone already has."""
+        head = git("rev-parse", "HEAD", cwd=self.project_dir)
+        commits = hygiene._commits_in_range(head)
+        self.assertEqual(len(commits), 1)
+
+    def test_a_missing_left_side_raises_a_named_error_naming_the_sha(self):
+        head = git("rev-parse", "HEAD", cwd=self.project_dir)
+        missing = "1234567890abcdef1234567890abcdef12345678"
+        with self.assertRaises(hygiene.MissingRevisionError) as ctx:
+            hygiene._commits_in_range(f"{missing}..{head}")
+        self.assertEqual(ctx.exception.missing_sha, missing)
+
+    def test_push_to_main_reports_the_missing_sha_without_crashing(self):
+        """The bug wasn't just a bad message - it was an unhandled traceback
+        reaching the hook's stderr. This pins the CLI entry point end to
+        end: a clean, non-zero exit with an actionable message and no
+        traceback."""
+        import contextlib
+        import io
+
+        head = git("rev-parse", "HEAD", cwd=self.project_dir)
+        missing = "1234567890abcdef1234567890abcdef12345678"
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            code = hygiene.main(["hygiene.py", "push-to-main", f"{missing}..{head}"])
+        output = buf.getvalue()
+        self.assertEqual(code, 1)
+        self.assertIn(missing[:12], output)
+        self.assertIn("git fetch", output)
+        self.assertNotIn("Traceback", output)
+
+    def test_push_to_main_still_blocks_a_non_digest_commit_in_a_resolvable_range(self):
+        """The fix must not weaken the existing check for the ordinary case -
+        only the crash on an unresolvable left side."""
+        base = git("rev-parse", "HEAD", cwd=self.project_dir)
+        (self.project_dir / "unrelated.py").write_text("x = 1\n")
+        git("add", "unrelated.py", cwd=self.project_dir)
+        git("commit", "-m", "not a digest commit", cwd=self.project_dir)
+        head = git("rev-parse", "HEAD", cwd=self.project_dir)
+
+        problems = hygiene.check_main_push(hygiene._commits_in_range(f"{base}..{head}"))
+        self.assertEqual(len(problems), 1)
 
 
 if __name__ == "__main__":

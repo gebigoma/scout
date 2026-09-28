@@ -19,7 +19,7 @@ class PrePushHookTest(PipelineTestCase):
     def _repo_with_hooks(self):
         """A throwaway repo running the real hook against the real hygiene
         rules, so this can't pass while the shipped hook is broken."""
-        init_repo_with_remote(self.project_dir)
+        self._remote = init_repo_with_remote(self.project_dir)
         shutil.copytree(REAL_ROOT / ".githooks", self.project_dir / ".githooks")
         (self.project_dir / "scripts").mkdir(exist_ok=True)
         shutil.copy(REAL_ROOT / "scripts" / "hygiene.py",
@@ -81,6 +81,46 @@ class PrePushHookTest(PipelineTestCase):
         git("commit", "-m", "not a digest commit", cwd=self.project_dir)
         proc = self._push("HEAD:main")
         self.assertNotEqual(proc.returncode, 0)
+
+    def test_a_stale_clone_gets_a_readable_hygiene_message_not_a_traceback(self):
+        """The 2026-09-28 incident: PR #32 merged on GitHub, advancing the
+        bare remote, while this repo's clone never fetched. git's pre-push
+        hook is handed the remote's *actual current sha* on stdin (not this
+        clone's stale tracking ref) - a sha this clone never fetched and so
+        does not have in its local object store. hygiene.py's push-to-main
+        ran `git rev-list <that sha>..<local>`, which exited 128 with `fatal:
+        Invalid revision range`, and because hygiene._git used check=True
+        that raised an unhandled CalledProcessError straight through the
+        hook - a Python traceback on stderr, not a hygiene message - and the
+        push was rejected with no readable cause.
+
+        Reproduce for real: clone the same bare remote a second time, commit
+        and push from that second clone so the remote advances, then attempt
+        a digest push from the first (now-stale) clone. Assert the push
+        still fails - it has to, the remote really has moved - but with the
+        hygiene module's readable message, and NOT a traceback.
+        """
+        self._repo_with_hooks()
+
+        # Nested inside project_dir (rather than a sibling) so it's swept up
+        # by the same addCleanup(shutil.rmtree, project_dir) as everything
+        # else - a sibling directory here previously leaked across test runs
+        # and made a rerun's `git clone` fail as "destination already exists".
+        second_clone = self.project_dir / "_second_clone"
+        git("clone", str(self._remote), str(second_clone), cwd=self.project_dir)
+        git("config", "user.email", "test@example.com", cwd=second_clone)
+        git("config", "user.name", "scout tests", cwd=second_clone)
+        (second_clone / "advance.txt").write_text("advance")
+        git("add", "advance.txt", cwd=second_clone)
+        git("commit", "-m", "advance the remote", cwd=second_clone)
+        git("push", "origin", "main", cwd=second_clone)
+
+        self._commit_digest()
+        proc = self._push("HEAD:main")
+
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("Traceback", proc.stderr)
+        self.assertIn("git fetch", proc.stderr)
 
 
 if __name__ == "__main__":

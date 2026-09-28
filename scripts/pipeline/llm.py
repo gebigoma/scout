@@ -3,6 +3,7 @@ import shutil
 import os
 import subprocess
 
+from . import textutil
 
 # Pinned deliberately. Without it these calls inherit whatever interactive
 # default the user last set via /model, so changing your editor preference
@@ -22,7 +23,8 @@ def failure_detail(proc: "subprocess.CompletedProcess") -> str:
     name. stderr comes first because that is where a real crash lands.
     """
     parts = [s.strip() for s in (proc.stderr, proc.stdout) if s and s.strip()]
-    return " | ".join(parts)[:500] if parts else "no output on stdout or stderr"
+    return (textutil.elide_middle(" | ".join(parts))
+            if parts else "no output on stdout or stderr")
 
 
 def claude_bin() -> str:
