@@ -63,6 +63,16 @@ class FailureDetailTest(PipelineTestCase):
     def test_detail_is_capped_so_one_failure_cannot_flood_the_log(self):
         self.assertEqual(len(llm.failure_detail(self._proc(stderr="x" * 5000))), 500)
 
+    def test_capping_keeps_both_the_head_and_the_tail(self):
+        """elide_middle, not a head slice: the cause of a git or CLI failure
+        can land at either end of the diagnostic (see textutil.elide_middle),
+        so a truncated detail must still carry both ends."""
+        detail = llm.failure_detail(
+            self._proc(stderr="HEAD" + "x" * 5000 + "TAIL"))
+        self.assertTrue(detail.startswith("HEAD"))
+        self.assertTrue(detail.endswith("TAIL"))
+        self.assertEqual(len(detail), 500)
+
 
 class ModelTest(PipelineTestCase):
     def _reload_with_env(self, **env):

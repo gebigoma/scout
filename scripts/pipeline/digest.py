@@ -1,9 +1,10 @@
 """Digest stage: pure Python, no LLM. Renders matches/<date>.md from the
 score checkpoint, updates data/seen.json, and commits+pushes the result."""
 import json
+import re
 import subprocess
 
-from . import alert, lanes, logging_setup, manifest, paths
+from . import alert, lanes, logging_setup, manifest, paths, textutil
 
 # The scheduled job runs against whatever the working copy happens to be
 # checked out on, which for a repo that's also actively developed in is not
@@ -133,8 +134,55 @@ class GitError(subprocess.CalledProcessError):
         detail = (self.stderr or "").strip() or (self.output or "").strip()
         base = super().__str__()
         # rstrip the base's trailing period so the appended detail doesn't
-        # read as ".: fatal: ...".
-        return f"{base.rstrip('.')}: {detail[:500]}" if detail else base
+        # read as ".: fatal: ...". elide_middle (not a head slice) so a
+        # traceback-shaped detail - whose cause is its LAST line - doesn't
+        # lose that line the way the 2026-09-28 incident did; see
+        # textutil.elide_middle's docstring.
+        return f"{base.rstrip('.')}: {textutil.elide_middle(detail)}" if detail else base
+
+
+class RemoteAheadError(GitError):
+    """Raised when `git push` is rejected because origin/main has moved past
+    what this clone knows about.
+
+    On 2026-09-28 a PR merged on GitHub without this laptop's clone ever
+    fetching, so the tracking ref (`@{u}`) `_unpushed_commit_count` checks
+    stayed stale: it still reported the digest commit as unpushed, so the run
+    pushed straight into a guaranteed non-fast-forward rejection. Because
+    digest writes no checkpoint on failure, every later run would repeat that
+    rejection identically until someone intervened - the same shape as the
+    2026-08-17 incident. This turns that outcome into a named, readable one
+    instead of a bare "returned non-zero exit status 1".
+
+    Subclasses GitError (itself a CalledProcessError) rather than composing a
+    plain exception, because _current_branch and _unpushed_commit_count both
+    catch CalledProcessError and treat a non-zero git exit as an expected
+    answer, not a crash - a fresh, unrelated exception type would break that.
+    """
+
+    def __str__(self) -> str:
+        detail = (self.stderr or self.output or "").strip()
+        return (
+            "origin/main has moved past this clone - the push was rejected "
+            "as non-fast-forward. The commit this run just made is stranded "
+            "locally; fetch and integrate origin/main (git fetch origin && "
+            "git rebase origin/main, or merge) before the next scheduled run "
+            "publishes, or it will hit this same rejection every time."
+            + (f" git said: {textutil.elide_middle(detail)}" if detail else "")
+        )
+
+
+# Substrings git uses across its various "the remote has commits I don't"
+# rejection messages - the hint text differs by git version, but these are
+# stable. Checked against stderr only: `_looks_like_non_fast_forward` is
+# meant to recognise "the push itself was rejected because the remote moved",
+# not any git failure that happens to mention "rejected" elsewhere.
+_NON_FAST_FORWARD_SIGNATURE = re.compile(
+    r"\[rejected\]|non-fast-forward|fetch first|fetch again", re.IGNORECASE)
+
+
+def _looks_like_non_fast_forward(stderr: str) -> bool:
+    return bool(_NON_FAST_FORWARD_SIGNATURE.search(stderr or ""))
 
 
 def _git(*args) -> str:
@@ -219,7 +267,18 @@ def run(run_date: str, dedupe_checkpoint: dict, score_checkpoint: dict,
                 # Name the destination explicitly instead of a bare `git push`,
                 # which would follow push.default and send every unpushed commit
                 # on the branch wherever main happens to track.
-                _git("push", "origin", f"HEAD:{PUBLISH_BRANCH}")
+                try:
+                    _git("push", "origin", f"HEAD:{PUBLISH_BRANCH}")
+                except GitError as e:
+                    # _unpushed_commit_count measures @{u}..HEAD - the STALE
+                    # tracking ref, not what origin/main actually is now. A
+                    # clone that never fetched still sees unpushed>=1 and
+                    # pushes straight into this rejection; say so plainly
+                    # instead of letting it read as an ordinary push failure.
+                    if _looks_like_non_fast_forward(e.stderr or ""):
+                        raise RemoteAheadError(e.returncode, e.cmd,
+                                               output=e.output, stderr=e.stderr) from e
+                    raise
             committed = has_staged_changes
             pushed = bool(unpushed)
     except Exception as e:

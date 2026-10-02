@@ -199,6 +199,83 @@ class GitErrorTest(PipelineTestCase):
         init_repo_with_remote(self.project_dir)
         self.assertEqual(digest._git("rev-parse", "--abbrev-ref", "HEAD"), "main")
 
+    def test_a_long_multiline_detail_keeps_both_its_first_and_last_lines(self):
+        """Pins the 2026-09-28 incident: GitError.__str__ used to do
+        detail[:500], a head slice, which on a traceback-shaped stderr (as
+        the pre-push hook can print when a subprocess dies uncaught) kept the
+        opening frames and cut the final "subprocess.CalledProcessError: ...
+        exit status 128" line - the one line that actually named the cause.
+        A middle elision has to keep both ends."""
+        init_repo_with_remote(self.project_dir)
+        traceback_like = (
+            "Traceback (most recent call last):\n"
+            + "  File \"hygiene.py\", line 154, in _commits_in_range\n" * 60
+            + "subprocess.CalledProcessError: Command '['git', 'rev-list', "
+              "'7916b47..deadbee']' returned non-zero exit status 128."
+        )
+        err = digest.GitError(1, ["git", "rev-list", "x"], output="",
+                              stderr=traceback_like)
+        text = str(err)
+        self.assertIn("Traceback (most recent call last):", text)
+        self.assertIn(
+            "subprocess.CalledProcessError: Command '['git', 'rev-list', "
+            "'7916b47..deadbee']' returned non-zero exit status 128.", text)
+
+
+class RemoteAheadErrorTest(PipelineTestCase):
+    """Pins Fix 3 for the 2026-09-28 incident: _unpushed_commit_count measures
+    @{u}..HEAD, the STALE tracking ref, so a clone that never fetched still
+    reports the digest commit as unpushed and pushes straight into a
+    guaranteed non-fast-forward rejection. That must come back as a named,
+    readable outcome - not the bare "returned non-zero exit status 1" that
+    made 2026-08-17 and 2026-08-24 indistinguishable in the log.
+    """
+
+    def test_looks_like_non_fast_forward_recognises_gits_rejection_text(self):
+        stderr = (
+            " ! [rejected]        HEAD -> main (fetch first)\n"
+            "error: failed to push some refs\n"
+            "hint: Updates were rejected because the remote contains work "
+            "that you do not have locally.\n"
+        )
+        self.assertTrue(digest._looks_like_non_fast_forward(stderr))
+
+    def test_an_unrelated_git_failure_is_not_mistaken_for_it(self):
+        self.assertFalse(digest._looks_like_non_fast_forward(
+            "fatal: not a git repository (or any of the parent directories)"))
+
+    def test_a_push_rejected_as_non_fast_forward_raises_remote_ahead_error(self):
+        """Reproduce the real scenario end to end: a second clone of the same
+        bare remote advances it, so this clone's tracking ref goes stale, and
+        digest.run's push must fail with RemoteAheadError - not a bare
+        GitError - and without silently publishing nothing."""
+        self.remote = init_repo_with_remote(self.project_dir)
+
+        # Nested inside project_dir so it's removed by the same
+        # addCleanup(shutil.rmtree, project_dir) as everything else, rather
+        # than leaking as a sibling directory across test runs.
+        second_clone = self.project_dir / "_second_clone"
+        git("clone", str(self.remote), str(second_clone), cwd=self.project_dir)
+        git("config", "user.email", "test@example.com", cwd=second_clone)
+        git("config", "user.name", "scout tests", cwd=second_clone)
+        (second_clone / "advance.txt").write_text("advance")
+        git("add", "advance.txt", cwd=second_clone)
+        git("commit", "-m", "advance the remote", cwd=second_clone)
+        git("push", "origin", "main", cwd=second_clone)
+
+        dedupe_cp = {"listings": [fixtures.listing("c1")]}
+        with self.assertRaises(digest.RemoteAheadError) as ctx:
+            digest.run("2026-09-28", dedupe_cp,
+                      {"scored": [fixtures.scored("https://x/1", 88)]})
+        self.assertIsInstance(ctx.exception, subprocess.CalledProcessError)
+        text = str(ctx.exception)
+        self.assertIn("moved past this clone", text)
+        self.assertIn("stranded", text)
+        self.assertIn("fetch", text)
+
+        m = manifest.load("2026-09-28")
+        self.assertEqual(m["stages"]["digest"]["status"], "failed")
+
 
 class DigestRunTest(PipelineTestCase):
     def setUp(self):
