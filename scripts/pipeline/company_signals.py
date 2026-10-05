@@ -157,17 +157,15 @@ def _render_markdown(checkpoint: dict, qualified: list, run_date: str) -> str:
     )
     lines.append("")
     lines.append("| Company | Concentration | Recent eng / total | Median age (d) | "
-                 "Headcount | Last Form D | Fund |")
-    lines.append("|---|---|---|---|---|---|---|")
+                 "Last Form D | Fund |")
+    lines.append("|---|---|---|---|---|---|")
     for c in qualified:
         t = c["totals"]
-        headcount = c["headcount"]
         funding = c["funding"] or {}
         lines.append(
             f"| {c['name']} | {t['concentration'] * 100:.0f}% | "
             f"{t['recent_eng']}/{t['total']} | "
             f"{t['median_age_days'] if t['median_age_days'] is not None else ''} | "
-            f"{headcount if headcount is not None else ''} | "
             f"{funding.get('last_form_d', '')} | {c['source']} |"
         )
     lines.append("")
@@ -213,7 +211,7 @@ def run(run_date: str, fetch_ats_checkpoint: dict = None,
                 continue
             companies_out.append({
                 "name": company["name"], "ats": company["ats"], "token": company["token"],
-                "headcount": company.get("headcount"), "source": company.get("source", ""),
+                "source": company.get("source", ""),
                 "totals": _score_company(reqs, window_days),
                 "reqs": reqs,
                 # Populated by a future funding.py enrichment pass - reserved

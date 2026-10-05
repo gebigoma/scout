@@ -229,9 +229,20 @@ other).
   flag and the viewer's `company list` column — check both after the first
   run with a real Workable token in `companies.csv`, before trusting a quiet
   week from it.
-- **`data/companies.csv` is hand-maintained** (`name,ats,token,headcount,source`)
-  and drives the first_tpm lane's fetch. An empty `headcount` means unknown, not
-  zero — never guess it.
+- **`data/companies.csv` is hand-maintained** (`name,ats,token,source`) and
+  drives the first_tpm lane's fetch. A `headcount` column was part of this
+  schema until 2026-10-05: it was populated for **0 of 104 rows** for its
+  entire life while `ROLE_CRITERIA_FIRST_TPM.md` lowered the score for a
+  missing value, so every match was charged for data that never existed — both
+  first_tpm matches ever published (Supabase 75, Baseten 72) are capped with
+  "company size is unknown" in their rationale. That is the same defect as the
+  domain rule in the same file, found a second time: a dimension that moves
+  rank rather than filtering, whose cost is invisible because nothing records
+  what the penalty cost. Company size survives as an *unscored observation*
+  taken from the posting text, where the evidence actually is.
+  `load_companies` ignores unrecognised columns rather than rejecting them, so
+  a hand-edited copy still carrying `headcount` keeps loading — the file is
+  edited by a person, not migrated.
 - **`data/known_good.csv` is the hand-kept recall log.** The pipeline can
   measure precision from what `digest` publishes, but it has no record of roles
   it never saw — recall is only observable from outside, so it gets tracked by

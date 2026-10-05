@@ -1,5 +1,5 @@
-name,ats,token,headcount,source
-Example Greenhouse Co,greenhouse,examplegreenhouse,120,example-capital
-Example Ashby Co,ashby,exampleashby,,example-capital
-Example Lever Co,lever,examplelever,64,example-capital
-Example Workable Co,workable,exampleworkable,85,example-angels
+name,ats,token,source
+Example Greenhouse Co,greenhouse,examplegreenhouse,example-capital
+Example Ashby Co,ashby,exampleashby,example-capital
+Example Lever Co,lever,examplelever,example-capital
+Example Workable Co,workable,exampleworkable,example-angels

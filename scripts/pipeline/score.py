@@ -36,8 +36,7 @@ def _build_prompt(matches: list[dict], lane: str) -> str:
     matches_json = json.dumps(
         [{"url": m["url"], "role_category": m["role_category"], "reason": m["reason"],
           "title": m["listing"]["title"], "company": m["listing"].get("company", ""),
-          "source": m["listing"]["source"], "snippet": m["listing"]["snippet"],
-          "headcount": m["listing"].get("headcount")}
+          "source": m["listing"]["source"], "snippet": m["listing"]["snippet"]}
          for m in matches],
         indent=2,
     )

@@ -16,16 +16,25 @@ class LoadCompaniesTest(PipelineTestCase):
         rows = companies.load_companies(self._write_csv())
         self.assertEqual([c["ats"] for c in rows], ["greenhouse", "ashby", "lever"])
 
-    def test_blank_headcount_parses_as_unknown_not_zero(self):
+    def test_headcount_is_not_part_of_the_schema(self):
+        """Dropped 2026-10-05. It was populated for 0 of 104 rows for its
+        whole life while the fit guide lowered the score for a missing one,
+        so every listing paid for a column that never held anything."""
         rows = companies.load_companies(self._write_csv())
-        bounce = next(c for c in rows if c["name"] == "Bounce Systems")
-        self.assertIsNone(bounce["headcount"])
+        self.assertTrue(rows)
+        for row in rows:
+            self.assertNotIn("headcount", row)
 
-    def test_a_present_headcount_parses_as_an_int(self):
-        rows = companies.load_companies(self._write_csv())
-        acme = next(c for c in rows if c["name"] == "Acme Robotics")
-        self.assertEqual(acme["headcount"], 85)
-        self.assertIsInstance(acme["headcount"], int)
+    def test_an_unrecognised_column_is_ignored_not_rejected(self):
+        """A hand-maintained CSV that still carries the old headcount column
+        has to keep loading - the file is edited by a person, not migrated."""
+        path = self._write_csv(
+            "name,ats,token,headcount,source\n"
+            "Legacy Co,ashby,legacyco,85,example-capital\n")
+        row, = companies.load_companies(path)
+        self.assertEqual(row["name"], "Legacy Co")
+        self.assertEqual(row["token"], "legacyco")
+        self.assertNotIn("headcount", row)
 
     def test_token_and_source_are_captured(self):
         rows = companies.load_companies(self._write_csv())
@@ -88,10 +97,11 @@ class CompaniesExampleTest(unittest.TestCase):
     def test_the_template_demonstrates_every_supported_ats(self):
         self.assertEqual({c["ats"] for c in self._rows()}, companies.ATS_CHOICES)
 
-    def test_the_template_demonstrates_unknown_headcount(self):
-        """Blank headcount is the column's one real trap - it means unknown,
-        never 0 - so the template has to show it."""
-        self.assertIn(None, [c["headcount"] for c in self._rows()])
+    def test_the_template_has_no_headcount_column(self):
+        """Dropped from the schema 2026-10-05; a template still advertising
+        it would invite populating a column nothing reads."""
+        for row in self._rows():
+            self.assertNotIn("headcount", row)
 
 
 if __name__ == "__main__":

@@ -162,12 +162,14 @@ Full-time roles establishing the TPM function.
         self.assertFalse(paths.checkpoint_path(RUN_DATE, "score").exists())
         self.assertEqual(manifest.load(RUN_DATE)["stages"]["score"]["status"], "failed")
 
-    def test_unknown_headcount_reaches_the_model_as_null_not_zero(self):
-        prompt = score._build_prompt(
-            [fixtures.match("https://x/1", headcount=None)], "first_tpm")
+    def test_headcount_is_not_sent_to_the_model(self):
+        """It was null for every company that ever ran, so the only thing it
+        communicated was "size unknown" - which the fit guide then charged
+        the score for. Both published first_tpm matches were capped by it."""
+        prompt = score._build_prompt([fixtures.match("https://x/1")], "first_tpm")
         payload = json.loads(prompt.split("--- BEGIN UNTRUSTED LISTINGS ---")[1]
                                    .split("--- END UNTRUSTED LISTINGS ---")[0])
-        self.assertIsNone(payload[0]["headcount"])
+        self.assertNotIn("headcount", payload[0])
 
 
 class SchemaTest(unittest.TestCase):

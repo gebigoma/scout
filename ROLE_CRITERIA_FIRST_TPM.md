@@ -107,19 +107,16 @@ heavily from infra and dev-tools companies, so expect to see it.
 
 ## Fit score guide
 
-Every match gets a 0-100 fit score. Company headcount is a **signal, not a
-gate** — the target band is 50-150 employees, but headcount data is stale and
-frequently unavailable, so a missing or out-of-band number lowers the score
-rather than disqualifying the listing.
+Every match gets a 0-100 fit score, on the strength of its foundation evidence
+and its role fit.
 
-- **85-100** — Ideal: explicit first/second-TPM language, company in the
-  50-150 band, senior scope.
+- **85-100** — Ideal: explicit first/second-TPM language, senior scope, and
+  the posting makes the shape of the role unambiguous.
 - **60-84** — Strong: explicit foundation language and clear role fit, but
-  missing one dimension (headcount unknown, or somewhat outside the band).
+  missing one dimension (scope is senior but the reporting line is unstated,
+  or the foundation claim is made once in passing).
 - **35-59** — Marginal: still a genuine match, but the foundation evidence
-  leans implicit rather than explicit, or the company is well outside the size
-  band (a 400-person company hiring its "first TPM" is real but a different
-  job than intended).
+  leans implicit rather than explicit.
 - **0-34** — Shouldn't appear. A low score here means the score stage
   disagreed with classify; treat it as a signal to check classify's judgment,
   not as a listing to pursue.
@@ -132,8 +129,23 @@ claim (the pipeline disagreeing with itself) and would quietly empty the
 section this tier exists to fill. A clean senior TPM req at a target-profile
 company belongs in the 60-84 band on role fit alone.
 
-State the company's headcount in the rationale when known, and say "size
-unknown" when it isn't — never guess it.
+**Company size is not scored.** State it in the rationale when the *posting*
+states it (team size, company size, "we are ~60 people"), and say nothing when
+it doesn't — never guess, and never infer it from funding stage or notability.
+
+Headcount was a scored dimension until 2026-10-05, read from a `headcount`
+column in `data/companies.csv`. That column was populated for 0 of 104
+companies for its entire life, while this guide lowered the score for a
+missing value — so every match was charged for data that never existed. Both
+first-TPM matches ever published (Supabase 75, Baseten 72) say "company size
+is unknown" in their rationale and were capped for it. That is the same defect
+as the domain rule below, found a second time: a dimension that moves rank
+rather than filtering, whose cost is invisible because nothing records what
+the penalty cost. The column is gone; size survives as an observation.
+
+A 400-person company hiring its "first TPM" is still a different job than
+intended — but that is now a judgment made from the posting, where the
+evidence actually is, rather than from a column nobody filled.
 
 **Domain is not scored.** State the company's domain in the rationale
 (infrastructure, dev-tools, fintech, health, …) so it's visible at a glance,
@@ -148,7 +160,8 @@ actually yield founding-TPM roles.
 ## Output format
 
 For each match in `matches/<date>.md`: title, company, source, link, fit
-score, employment type, company size (or "unknown"), and a one-line rationale
+score, employment type, company size if the posting states it, and a
+one-line rationale
 that quotes or paraphrases the specific foundation-laying evidence found in
 the posting. The quoted evidence is the point — it's what makes a match
 auditable, and what makes a false positive obvious at a glance.

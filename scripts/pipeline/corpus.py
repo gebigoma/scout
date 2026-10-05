@@ -23,8 +23,12 @@ One row per first_tpm listing present in that run's normalize checkpoint:
                            index into that run's DEDUPED listing list,
                            spanning both lanes - see classify.run) - null
                            iff the listing never reached dedupe's output
-  url, company, title, location_text, location_country_code, headcount
-                           carried straight from the normalize listing
+  url, company, title, location_text, location_country_code
+                           carried straight from the normalize listing.
+                           `headcount` was a column here until 2026-10-05
+                           and is null in every corpus file that has it -
+                           it was never populated for any company, which is
+                           why it was dropped rather than fixed
   description              normalize's match_text - the full description
                            prefilter matched against. `match_text` did not
                            exist before d223e72 (2026-09-03) - a run from
@@ -238,7 +242,6 @@ def build_rows(run_date: str, normalize_cp: dict, prefilter_cp: dict,
             "title": listing.get("title", ""),
             "location_text": listing.get("location_text", ""),
             "location_country_code": listing.get("location_country_code", ""),
-            "headcount": listing.get("headcount"),
             "description": listing.get("match_text") or listing.get("snippet", ""),
             "description_source": "match_text" if "match_text" in listing else "snippet",
             "source": source,

@@ -33,14 +33,16 @@ def load_companies(path=None) -> list:
     with path.open(newline="") as f:
         companies = []
         for row in csv.DictReader(f):
-            # Blank headcount means "unknown", never 0 - a 0 would score as
-            # badly out-of-band rather than as missing data.
-            headcount_raw = (row.get("headcount") or "").strip()
+            # `headcount` was dropped from this schema on 2026-10-05. It was
+            # populated for 0 of 104 rows for its whole life, while the fit
+            # guide lowered the score for a missing one - so every listing
+            # paid for a column that never held anything. An extra column in
+            # a hand-maintained CSV is ignored rather than rejected, so an
+            # un-updated copy of the file still loads.
             companies.append({
                 "name": row["name"].strip(),
                 "ats": row["ats"].strip(),
                 "token": row["token"].strip(),
-                "headcount": int(headcount_raw) if headcount_raw else None,
                 "source": (row.get("source") or "").strip(),
             })
         return companies
