@@ -6,7 +6,7 @@ import csv
 
 from . import paths
 
-ATS_CHOICES = {"greenhouse", "ashby", "lever"}
+ATS_CHOICES = {"greenhouse", "ashby", "lever", "workable"}
 
 # Why the first-TPM lane produced no companies, which is not the same question
 # as why it produced no matches. load_companies returns [] for a missing file

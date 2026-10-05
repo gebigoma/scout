@@ -32,6 +32,17 @@ def _url(company: dict) -> str:
         return f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"
     if company["ats"] == "ashby":
         return f"https://api.ashbyhq.com/posting-api/job-board/{token}"
+    if company["ats"] == "workable":
+        # ?details=true is load-bearing the same way greenhouse's
+        # ?content=true is: without it each job carries summary fields only,
+        # no description or full_description, and prefilter's tier-2
+        # proximity has nothing contiguous to measure over.
+        #
+        # The documented host (www.workable.com/api/accounts/<token>) 302s to
+        # this one for the same payload; requesting the redirect target
+        # directly keeps the per-company call to a single request.
+        return (f"https://apply.workable.com/api/v1/widget/accounts/{token}"
+                f"?details=true")
     return f"https://api.lever.co/v0/postings/{token}?mode=json"
 
 
@@ -51,7 +62,7 @@ def _fetch_company_raw(company: dict):
             return None
         raise
     data = json.loads(raw)
-    if company["ats"] in ("greenhouse", "ashby"):
+    if company["ats"] in ("greenhouse", "ashby", "workable"):
         return data.get("jobs", [])
     return data if isinstance(data, list) else []  # lever
 
