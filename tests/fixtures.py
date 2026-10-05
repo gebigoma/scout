@@ -122,6 +122,16 @@ HN_HEADERS = [
     # No role anywhere in the header - the roles are listed in the body.
     ("Flywheel Motion (flywheelmotion.com) | REMOTE (worldwide) | Contract",
      "Flywheel Motion (flywheelmotion.com)", "REMOTE (worldwide) | Contract"),
+    # Em dashes instead of pipes. Field 0 is the company only when the role
+    # was found after it - these are real headers from the retained runs.
+    ("Ambito (ambito.io) — Founding AI Engineer / Equity Partner — Remote but Boston based only",
+     "Ambito (ambito.io)", "Founding AI Engineer / Equity Partner"),
+    ("PrairieLearn (Remote US) — Full-Stack Software Engineer — TypeScript / Postgres / React / AI",
+     "PrairieLearn (Remote US)", "Full-Stack Software Engineer"),
+    # Role in field 0, so there is no company in the header to take.
+    ("Software Engineer — Remote (US Only)", "", "Software Engineer"),
+    ("Founding Engineer (Security / AI / Distributed Systems) — Stealth Project",
+     "", "Founding Engineer (Security / AI / Distributed Systems)"),
 ]
 
 HN_SEARCH_RESPONSE = {
