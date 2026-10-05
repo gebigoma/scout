@@ -138,6 +138,42 @@ class NormalizeHnTest(unittest.TestCase):
                 self.assertEqual(listing["company"], company)
                 self.assertEqual(listing["title"], title)
 
+    def test_a_company_is_never_a_truncated_copy_of_its_own_title(self):
+        """The Ambito regression, published in matches/2026-10-05.md: the
+        header used em dashes, so splitting on "|" produced one field, and
+        company took its first 80 characters while title took the first 100
+        of the comment body. Both were prefixes of the same string, the
+        company cut mid-word ("...Boston b"). A wrong value that looks like
+        real data is worse than an empty one - digest falls back to the
+        source for an empty company."""
+        header = ("Ambito (ambito.io) — Founding AI Engineer / Equity Partner "
+                  "— Remote but Boston based only")
+        listing, = normalize._normalize_hn(
+            [{"id": 1, "text": header + "<p>Ambito is building something."}])
+        self.assertEqual(listing["company"], "Ambito (ambito.io)")
+        self.assertEqual(listing["title"], "Founding AI Engineer / Equity Partner")
+        self.assertFalse(listing["title"].startswith(listing["company"]))
+
+    def test_a_header_with_no_delimiter_yields_no_company(self):
+        """Prose, not a header. Nothing marks where a name ends, so there is
+        no company to report - and reporting a truncated sentence as one is
+        the defect above in a different costume."""
+        listing, = normalize._normalize_hn([{
+            "id": 1,
+            "text": "Beacon AI builds intelligent systems that make aviation "
+                    "safer.<p>We are hiring engineers.",
+        }])
+        self.assertEqual(listing["company"], "")
+
+    def test_a_spaced_hyphen_is_not_treated_as_a_delimiter(self):
+        """"Please normalize 4DWW - Four Day Work Week" is a thread comment,
+        not a posting; splitting on " - " turned it into a company and an
+        identical title."""
+        listing, = normalize._normalize_hn([{
+            "id": 1, "text": "Please normalize 4DWW - Four Day Work Week<p>Body.",
+        }])
+        self.assertEqual(listing["company"], "")
+
     def test_a_location_is_never_promoted_to_a_job_title(self):
         """The Flywheel Motion regression: the header lists only location and
         terms, and "REMOTE (worldwide)" was published as the role."""

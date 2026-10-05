@@ -131,15 +131,46 @@ METADATA_FIELD = re.compile(
 URL_FIELD = re.compile(r"(https?://|www\.)", re.IGNORECASE)
 
 
-def _pick_hn_role(fields: list) -> str:
+# Delimiters people use when they don't use pipes. Spaced em/en dashes and
+# middle dots only: a spaced hyphen reads as a separator but is prose punctuation
+# at least as often ("Please normalize 4DWW - Four Day Work Week" is a thread
+# comment, not a posting), and a bare "-" is a hyphen far more often still
+# ("on-site", "Full-Stack", "150-250k").
+ALT_DELIMITER = re.compile(r"\s[—–]\s|\s·\s")
+
+
+def _hn_header_fields(header: str) -> tuple:
+    """Split a header into fields, and say whether the company-first
+    convention can be relied on.
+
+    Pipes are the thread template's delimiter and the one case where field 0
+    is reliably the company. The ~1 in 75 headers written with em dashes
+    instead follow no convention at all - of the nine in the retained runs,
+    "Ambito (ambito.io) — Founding AI Engineer — Remote" leads with the
+    company while "Software Engineer — Remote (US Only)" leads with the role -
+    so those are split, but positionally distrusted."""
+    piped = [f.strip() for f in header.split("|")]
+    if len([f for f in piped if f]) > 1:
+        return piped, True
+    alt = [f.strip() for f in ALT_DELIMITER.split(header)]
+    if len([f for f in alt if f]) > 1:
+        return alt, False
+    return ([header.strip()] if header.strip() else []), False
+
+
+def _pick_hn_role(fields: list, company_first: bool = True) -> str:
     """Choose the header field that names the role.
 
     The "Company | Role | Location | Type" convention is not one people
     actually follow. A single thread mixes in "Company | Location | Type",
     "Company | Salary | Location | Roles", and headers whose second field is
     a bare URL or a YC batch - so taking fields[1] published "REMOTE
-    (worldwide)", "150-250k+ + equity" and "YC 19" as job titles."""
-    candidates = [f for f in fields[1:] if f]
+    (worldwide)", "150-250k+ + equity" and "YC 19" as job titles.
+
+    Without a pipe there is no company-first convention to skip past, so
+    field 0 stays a candidate - it is where the role actually sits in headers
+    like "Software Engineer — Remote (US Only)"."""
+    candidates = [f for f in (fields[1:] if company_first else fields) if f]
     for field in candidates:  # a field that names a role
         if ROLE_WORDS.search(field) and not URL_FIELD.match(field):
             return field[:100]
@@ -150,6 +181,32 @@ def _pick_hn_role(fields: list) -> str:
     # which the classifier reads via the snippet). Show the terms rather than
     # promoting a location to a job title.
     return " | ".join(candidates)[:100]
+
+
+def _pick_hn_company(fields: list, company_first: bool,
+                     role_after_first: bool) -> str:
+    """The company, or "" when the header doesn't reliably name one.
+
+    Only the pipe-delimited form puts the company in a known position. The
+    previous `fields[0][:80]` applied that assumption to every header, so a
+    header with no pipes published the first 80 characters of the *whole
+    header* as the company - a truncated copy of its own title, cut mid-word,
+    em dashes and all, which reads as real data and is not. "" is the honest
+    answer there, and digest already falls back to the source for it.
+
+    A dash-delimited header gets field 0 only when the role was found
+    somewhere *after* it, which is the same evidence the pipe form assumes
+    rather than a second guess: "Ambito (ambito.io) — Founding AI Engineer —
+    Remote" names its role in field 1, so field 0 is the company. "Software
+    Engineer — Remote (US Only)" names its role in field 0, so there is no
+    company to take, and "SpendAi — I ship procurement-grade agents..." is
+    prose whose role lands in field 0 by fallback - both correctly yield ""
+    rather than another plausible-looking fabrication."""
+    if not fields:
+        return ""
+    if not company_first and not role_after_first:
+        return ""
+    return _one_line(fields[0])[:80]
 
 
 def _normalize_hn(items: list) -> list:
@@ -163,10 +220,16 @@ def _normalize_hn(items: list) -> list:
         # - which is what glued "Contract We build authority infrastructure
         # for people whose " into one heading.
         header = _strip_html(re.split(r"<p>|\n", raw, maxsplit=1)[0]).strip()
-        fields = [f.strip() for f in header.split("|")] if header else []
-        company = _one_line(fields[0])[:80] if fields else ""
+        fields, company_first = _hn_header_fields(header)
         role = _one_line(
-            _pick_hn_role(fields) if len(fields) > 1 else clean[:100])
+            _pick_hn_role(fields, company_first) if len(fields) > 1
+            else clean[:100])
+        # Whether the role came from somewhere other than field 0 is what
+        # tells _pick_hn_company that field 0 is a company and not the role.
+        role_after_first = bool(
+            len(fields) > 1 and role and fields[0]
+            and not _one_line(fields[0]).startswith(role[:40]))
+        company = _pick_hn_company(fields, company_first, role_after_first)
         result.append({
             "source": f"hn:{thread_title}",
             "title": role,
