@@ -143,17 +143,25 @@ class RenderMarkdownTest(unittest.TestCase):
         self.assertNotIn("### Agentic AI Engineer", md)
         self.assertIn("### Senior Technical Program Management", md)
 
-    def test_the_preamble_names_a_paused_role(self):
-        """The criteria file is linked in the same preamble and still
-        describes the paused role, so its absence has to be stated."""
-        md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FRACTIONAL])
-        self.assertIn("Paused: Agentic AI Engineer", md)
+    def test_a_paused_role_is_named_in_its_own_section_at_the_end(self):
+        """The linked criteria file still describes the paused role, so its
+        absence has to be stated - but after this week's results, not before
+        them. Its own section, because digest_archive files loose trailing
+        prose under the section before it."""
+        md = digest._render_markdown(
+            RUN_DATE, 10, [fixtures.scored("u1", 90, "senior_tpm", title="Fractional TPM")],
+            [fixtures.scored("u2", 20, "senior_tpm", title="Weak Match")],
+            active_lanes=[lanes.FRACTIONAL])
+        self.assertTrue(md.rstrip().endswith(
+            "## Paused\n\nAgentic AI Engineer — criteria retained, not matched this run."))
+        self.assertLess(md.index("## Rejected on scoring"), md.index("## Paused"))
+        self.assertLess(md.index("Fractional TPM"), md.index("## Paused"))
 
     def test_no_paused_line_when_nothing_is_paused(self):
         with mock.patch.object(lanes, "PAUSED_CATEGORIES", set()):
             md = digest._render_markdown(RUN_DATE, 10, [], [],
                                           active_lanes=[lanes.FRACTIONAL])
-        self.assertNotIn("Paused:", md)
+        self.assertNotIn("## Paused", md)
 
     def test_clearing_the_pause_restores_the_category(self):
         """Pins the one-line re-enable: emptying PAUSED_CATEGORIES is the
@@ -164,7 +172,7 @@ class RenderMarkdownTest(unittest.TestCase):
             ], [], active_lanes=[lanes.FRACTIONAL])
         self.assertIn("### Agentic AI Engineer", md)
         self.assertIn("AI Agent Engineer", md)
-        self.assertNotIn("Paused:", md)
+        self.assertNotIn("## Paused", md)
 
     def test_ends_with_exactly_one_trailing_newline(self):
         md = digest._render_markdown(RUN_DATE, 10, [fixtures.scored("u1", 90)], [])

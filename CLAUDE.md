@@ -108,8 +108,10 @@ other).
   `_validate_verdicts` fails a malformed chunk *wholesale*. The manifest
   records `paused_dropped` and `paused_categories` so a role dropped by
   configuration and a genuinely empty week don't produce the same green run,
-  and the digest preamble names the paused role because the criteria file it
-  links to still describes it.
+  and the digest names the paused role in a final `## Paused` section, because
+  the criteria file it links to still describes it. It sits last, after this
+  week's results, and is a section rather than a trailing paragraph because
+  `digest_archive` files loose trailing prose under the preceding section.
 - **The viewer's `worked` column is the number, `wall clock` is the window.**
   `scripts/viewer.py` reports both because checkpointing is the control flow:
   a date resumed days later is the normal path, so wall clock from first start
