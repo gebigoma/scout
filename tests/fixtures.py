@@ -214,6 +214,39 @@ LEVER_JOB = {
                         "attestation - no program management language here.",
 }
 
+# Workable's widget endpoint, which needs ?details=true for the two
+# description fields - without it each job carries summary fields only.
+# `description` is the summary blurb and `full_description` the body, so
+# normalize reads both: the foundation evidence this lane turns on is in the
+# second one. `country_code` makes workable the second ATS after lever to
+# give a machine-checkable location signal rather than free text.
+WORKABLE_JOB = {
+    "id": "54C47CCEA0",
+    "shortcode": "54C47CCEA0",
+    "title": "Technical Program Manager",
+    "url": "https://apply.workable.com/exampleworkable/j/54C47CCEA0",
+    "shortlink": "https://apply.workable.com/j/54C47CCEA0",
+    "published_on": "2026-08-14",
+    "created_at": "2026-08-12T10:03:00Z",
+    "state": "published",
+    "location": {"city": "San Francisco", "region": "California",
+                 "country": "United States", "country_code": "US"},
+    "locations": [],
+    "description": "We are growing the engineering org.",
+    "full_description": "<p>You will be our <strong>first TPM</strong>, "
+                        "establishing the program management function.</p>",
+}
+
+# The same shape with a non-US code, which prefilter drops authoritatively
+# rather than on a free-text country-name match.
+WORKABLE_JOB_NON_US = dict(
+    WORKABLE_JOB,
+    id="ABCDEF1234", shortcode="ABCDEF1234",
+    url="https://apply.workable.com/exampleworkable/j/ABCDEF1234",
+    location={"city": "Berlin", "region": "Berlin", "country": "Germany",
+              "country_code": "DE"},
+)
+
 
 def ats_listing(url, **overrides):
     """A normalized first_tpm-lane listing, as normalize._normalize_ats

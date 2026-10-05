@@ -42,9 +42,10 @@ sees both lanes' listings together, distinguishing them by a `lane` field.
 - **fetch_ats** (first_tpm lane) — one HTTP call per company in
   `data/companies.csv` (hand-maintained — see [Lanes](#lanes)) against
   Greenhouse (`?content=true` is required; the bare endpoint has no
-  description field at all), Ashby, or Lever, whichever ATS that company
-  uses. A 404 means the company isn't on that ATS and is skipped, not
-  treated as a failure — board tokens are often guesswork.
+  description field at all), Ashby, Lever, or Workable (`?details=true`,
+  required for the same reason), whichever ATS that company uses. A 404
+  means the company isn't on that ATS and is skipped, not treated as a
+  failure — board tokens are often guesswork.
 - **normalize** — maps each source's fields into a common schema and tags
   every listing with its lane. Snippets keep the description's opening
   *plus* any later sentence mentioning employment terms: these sources bury
@@ -190,8 +191,8 @@ python3 -m unittest tests.test_dedupe -v            # one module
 ```
 
 Stdlib `unittest`, no dependencies, no network: the two stages that call
-Claude are tested against a stubbed CLI, the six sources (three job boards,
-three ATS APIs) against captured response shapes, and `digest`'s commit/push
+Claude are tested against a stubbed CLI, the seven sources (three job boards,
+four ATS APIs) against captured response shapes, and `digest`'s commit/push
 path against a throwaway git repo with a local bare remote. Each test
 redirects `paths.PROJECT_DIR` at a temp directory, so the suite never writes
 to the real `data/`, `logs/`, or `matches/`.

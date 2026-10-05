@@ -166,9 +166,36 @@ other).
   `role_terms_seen`, so "the lane saw no role terms" and "the lane saw them and
   dropped them all" stop producing an identical empty digest and an identical
   green run.
-- **Greenhouse needs `?content=true`** — the bare endpoint has no description
-  field at all. A 404 from any ATS means the company isn't on it and is
-  skipped, not a failure; board tokens are guesswork.
+- **Greenhouse needs `?content=true`, Workable needs `?details=true`** — the
+  bare endpoints have no description field at all. A 404 from any ATS means
+  the company isn't on it and is skipped, not a failure; board tokens are
+  guesswork. `fetch_ats` covers Greenhouse, Ashby, Lever and Workable;
+  Workable was added because `known_good.csv`'s first row is a recall miss
+  caused by its absence (Blueprint, on Workable, 404'd and was skipped as
+  "not on this ATS"). Workable's documented host
+  (`www.workable.com/api/accounts/<token>`) 302s to
+  `apply.workable.com/api/v1/widget/accounts/<token>` for the same payload,
+  so the redirect target is requested directly — this stage already makes one
+  call per company and a portfolio of a few hundred is the slowest stage by
+  far. Its `description` is a summary blurb and `full_description` the body;
+  `normalize` reads **both**, because reading only the first would reproduce
+  issue #13 on a new ATS — text fetched, evidence never matched. Workable is
+  also the second ATS after Lever to give a machine-checkable
+  `country_code`, but only a single unambiguous code is treated as
+  authoritative: a posting open in several countries would otherwise be
+  dropped on one of its locations.
+- **The Workable response shape is from documentation, not a live call.**
+  The endpoint form was confirmed (the documented URL's 302 target), and the
+  field names come from Workable's published API docs, but no live account
+  was fetched while this was written — the one slug available
+  (`blueprint-bryanjohnson`, from `known_good.csv`) 404s now. So the parser
+  is unverified against a real payload, and the failure mode if a field name
+  is wrong is the silent one this lane specialises in: jobs fetched, nothing
+  parsed, an empty digest that looks like a quiet week. What makes that
+  visible rather than silent is `fetch_ats`'s `yielded_nothing` manifest
+  flag and the viewer's `company list` column — check both after the first
+  run with a real Workable token in `companies.csv`, before trusting a quiet
+  week from it.
 - **`data/companies.csv` is hand-maintained** (`name,ats,token,headcount,source`)
   and drives the first_tpm lane's fetch. An empty `headcount` means unknown, not
   zero — never guess it.

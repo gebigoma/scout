@@ -15,6 +15,8 @@ ASHBY_CO = {"name": "Bounce Systems", "ats": "ashby",
            "token": "bouncesystems", "headcount": None, "source": "bessemer"}
 LEVER_CO = {"name": "Cavil Data", "ats": "lever",
            "token": "cavildata", "headcount": 140, "source": "accel"}
+WORKABLE_CO = {"name": "Dunlin Labs", "ats": "workable",
+               "token": "dunlinlabs", "headcount": 70, "source": "angel"}
 
 
 class SourceParserTest(unittest.TestCase):
@@ -32,6 +34,37 @@ class SourceParserTest(unittest.TestCase):
         with self._patch_http({"boards-api.greenhouse.io": {"jobs": [fixtures.GREENHOUSE_JOB]}}) as http:
             fetch_ats._fetch_company_raw(GREENHOUSE_CO)
         self.assertIn("?content=true", http.call_args.args[0])
+
+    def test_workable_request_includes_details_true(self):
+        """Load-bearing the same way greenhouse's ?content=true is: without
+        it each job carries summary fields only, with no description or
+        full_description, so prefilter has nothing to match over."""
+        with self._patch_http({"apply.workable.com": {"jobs": [fixtures.WORKABLE_JOB]}}) as http:
+            fetch_ats._fetch_company_raw(WORKABLE_CO)
+        self.assertIn("?details=true", http.call_args.args[0])
+
+    def test_workable_requests_the_redirect_target_directly(self):
+        """The documented host 302s to apply.workable.com for the same
+        payload; asking for the target keeps this to one request per
+        company, and this stage makes one call per company already."""
+        with self._patch_http({"apply.workable.com": {"jobs": []}}) as http:
+            fetch_ats._fetch_company_raw(WORKABLE_CO)
+        url = http.call_args.args[0]
+        self.assertIn("apply.workable.com/api/v1/widget/accounts/dunlinlabs", url)
+        self.assertNotIn("www.workable.com", url)
+
+    def test_workable_jobs_are_parsed_from_the_jobs_envelope(self):
+        with self._patch_http({"apply.workable.com": {"jobs": [fixtures.WORKABLE_JOB]}}):
+            jobs = fetch_ats._fetch_company_raw(WORKABLE_CO)
+        self.assertEqual(jobs, [fixtures.WORKABLE_JOB])
+
+    def test_a_workable_404_is_a_skip_like_any_other_ats(self):
+        """Board tokens are guesswork on every ATS - a company not on
+        workable is skipped, not a failure."""
+        def raise_404(url, timeout=15):
+            raise HTTPError(url, 404, "Not Found", {}, None)
+        with mock.patch.object(fetch_ats, "_http_get", side_effect=raise_404):
+            self.assertIsNone(fetch_ats._fetch_company_raw(WORKABLE_CO))
 
     def test_greenhouse_jobs_are_parsed(self):
         with self._patch_http({"boards-api.greenhouse.io": {"jobs": [fixtures.GREENHOUSE_JOB]}}):

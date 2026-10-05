@@ -265,6 +265,24 @@ def _ats_location(ats: str, job: dict) -> dict:
         parts += [sl.get("location", "") for sl in job.get("secondaryLocations", [])]
         return {"location_text": "; ".join(p for p in parts if p),
                 "location_country_code": ""}
+    if ats == "workable":
+        # `location` is an object and `locations` a list of them; both carry
+        # a `country_code`, which makes workable the second ATS after lever
+        # with a machine-checkable signal rather than free text alone.
+        places = [job.get("location") or {}]
+        places += [p for p in (job.get("locations") or []) if isinstance(p, dict)]
+        text = "; ".join(
+            ", ".join(str(pl.get(k, "")) for k in ("city", "region", "country")
+                      if pl.get(k))
+            for pl in places if isinstance(pl, dict) and any(
+                pl.get(k) for k in ("city", "region", "country")))
+        codes = [str(pl.get("country_code", "")).strip().upper()
+                 for pl in places if isinstance(pl, dict) and pl.get("country_code")]
+        # Only a single unambiguous code is authoritative - a multi-country
+        # posting with a non-US code among several would otherwise be dropped
+        # on one of its locations, so those fall back to the text check.
+        return {"location_text": text,
+                "location_country_code": codes[0] if len(set(codes)) == 1 else ""}
     # lever
     categories = job.get("categories") or {}
     return {"location_text": categories.get("location", ""),
@@ -286,6 +304,16 @@ def _normalize_ats(companies_results: dict) -> list:
                 title, url = job.get("title", ""), job.get("jobUrl", "")
                 posted = job.get("publishedAt", "")
                 desc = job.get("descriptionPlain", "")
+            elif company["ats"] == "workable":
+                title = job.get("title", "")
+                url = job.get("url") or job.get("shortlink", "")
+                posted = job.get("published_on") or job.get("created_at", "")
+                # Both halves, because `description` is the summary blurb and
+                # `full_description` the body - the foundation evidence this
+                # lane turns on is in the second one.
+                desc = " ".join(
+                    x for x in (job.get("description", ""),
+                                job.get("full_description", "")) if x)
             else:  # lever
                 title, url = job.get("text", ""), job.get("hostedUrl", "")
                 posted = job.get("createdAt", "")

@@ -256,6 +256,44 @@ class NormalizeAtsTest(unittest.TestCase):
         self.assertEqual(listing["title"], "Staff Program Manager, Infrastructure")
         self.assertEqual(listing["url"], fixtures.LEVER_JOB["hostedUrl"])
 
+    def test_workable_maps_both_description_fields(self):
+        """`description` is the summary blurb and `full_description` the
+        body. The foundation evidence this lane turns on lives in the second
+        one, so reading only the first would reproduce issue #13 on a new
+        ATS: text fetched, evidence never matched."""
+        listing, = normalize._normalize_ats(
+            self._companies_results("workable", fixtures.WORKABLE_JOB))
+        self.assertEqual(listing["title"], "Technical Program Manager")
+        self.assertEqual(listing["url"], fixtures.WORKABLE_JOB["url"])
+        self.assertEqual(listing["lane"], "first_tpm")
+        self.assertIn("growing the engineering org", listing["match_text"])
+        self.assertIn("first TPM", listing["match_text"])
+        self.assertEqual(listing["posted_date"], "2026-08-14")
+
+    def test_workable_country_code_is_machine_checkable(self):
+        """Only lever gave an ISO code before this; workable is the second,
+        which prefilter can act on authoritatively rather than matching
+        free-text country names."""
+        listing, = normalize._normalize_ats(
+            self._companies_results("workable", fixtures.WORKABLE_JOB))
+        self.assertEqual(listing["location_country_code"], "US")
+        self.assertIn("San Francisco", listing["location_text"])
+
+        listing, = normalize._normalize_ats(
+            self._companies_results("workable", fixtures.WORKABLE_JOB_NON_US))
+        self.assertEqual(listing["location_country_code"], "DE")
+
+    def test_a_multi_country_workable_posting_falls_back_to_text(self):
+        """One non-US code among several would drop a posting that is also
+        open in the US, so a mixed set is not treated as authoritative."""
+        job = dict(fixtures.WORKABLE_JOB,
+                   locations=[{"city": "Berlin", "country": "Germany",
+                               "country_code": "DE"}])
+        listing, = normalize._normalize_ats(
+            self._companies_results("workable", job))
+        self.assertEqual(listing["location_country_code"], "")
+        self.assertIn("Berlin", listing["location_text"])
+
     def test_ats_listings_carry_the_full_description_as_match_text(self):
         """prefilter measures term distances over this, so it has to be the
         whole description and it has to be contiguous - not the snippet,
