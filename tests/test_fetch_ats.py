@@ -15,6 +15,8 @@ ASHBY_CO = {"name": "Bounce Systems", "ats": "ashby",
            "token": "bouncesystems", "source": "bessemer"}
 LEVER_CO = {"name": "Cavil Data", "ats": "lever",
            "token": "cavildata", "source": "accel"}
+PORTFOLIO_CO = {"name": "Example Ventures", "ats": "ashby_portfolio",
+                "token": "example-ventures", "source": "example-ventures"}
 WORKABLE_CO = {"name": "Dunlin Labs", "ats": "workable",
                "token": "dunlinlabs", "source": "angel"}
 
@@ -65,6 +67,20 @@ class SourceParserTest(unittest.TestCase):
             raise HTTPError(url, 404, "Not Found", {}, None)
         with mock.patch.object(fetch_ats, "_http_get", side_effect=raise_404):
             self.assertIsNone(fetch_ats._fetch_company_raw(WORKABLE_CO))
+
+    def test_a_portfolio_board_is_fetched_from_the_ashby_endpoint(self):
+        with self._patch_http({"api.ashbyhq.com": {"jobs": fixtures.ASHBY_PORTFOLIO_JOBS}}) as http:
+            jobs = fetch_ats._fetch_company_raw(PORTFOLIO_CO)
+        self.assertIn("api.ashbyhq.com/posting-api/job-board/example-ventures",
+                      http.call_args.args[0])
+        self.assertEqual(jobs, fixtures.ASHBY_PORTFOLIO_JOBS)
+
+    def test_an_unsupported_ats_is_not_sent_to_lever(self):
+        """Lever was the fall-through for any unrecognised value, so a typo
+        in the hand-typed ats column became a Lever 404 - reported as "not
+        on this ATS", which reads as a normal skip."""
+        with self.assertRaises(ValueError):
+            fetch_ats._url({"name": "X", "ats": "ashby-portfolio", "token": "x"})
 
     def test_greenhouse_jobs_are_parsed(self):
         with self._patch_http({"boards-api.greenhouse.io": {"jobs": [fixtures.GREENHOUSE_JOB]}}):
@@ -166,6 +182,29 @@ class FetchAtsRunTest(PipelineTestCase):
         entry = manifest.load(RUN_DATE)["stages"]["fetch_ats"]
         self.assertEqual(entry["status"], "success")
         self.assertEqual(entry["company_count"], 0)
+
+    def test_an_unsupported_ats_row_is_reported_and_never_requested(self):
+        typo = dict(ASHBY_CO, name="Typo Co", ats="ashby-portfolio")
+        with mock.patch.object(fetch_ats, "_fetch_company_raw",
+                               side_effect=lambda c: (
+                                   self.fail("requested an unsupported ats")
+                                   if c["ats"] == "ashby-portfolio"
+                                   else [fixtures.ASHBY_JOB])):
+            checkpoint = self._run_with_companies([typo, ASHBY_CO])
+        self.assertEqual(checkpoint["companies"]["Typo Co"]["status"], "invalid")
+        entry = manifest.load(RUN_DATE)["stages"]["fetch_ats"]
+        self.assertEqual(entry["status"], "success")
+        self.assertEqual(entry["invalid_ats"], ["Typo Co"])
+
+    def test_an_unsupported_ats_does_not_count_as_an_outage(self):
+        """A data error is not a transport failure, so a list whose only
+        other rows failed must not read "all reachable calls failed" on its
+        account - nor be rescued by it."""
+        typo = dict(ASHBY_CO, name="Typo Co", ats="ashby-portfolio")
+        with mock.patch.object(fetch_ats, "_fetch_company_raw",
+                               side_effect=socket.timeout("timed out")):
+            with self.assertRaises(RuntimeError):
+                self._run_with_companies([typo, ASHBY_CO])
 
     def _run_with_state(self, company_list, state, fetch_return=None):
         with mock.patch.object(companies, "list_state", return_value=state), \

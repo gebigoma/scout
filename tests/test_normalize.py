@@ -293,6 +293,32 @@ class NormalizeAtsTest(unittest.TestCase):
         self.assertEqual(listing["location_country_code"], "")
         self.assertIn("Berlin", listing["location_text"])
 
+    def _portfolio_results(self, jobs):
+        board = {"name": "Example Ventures", "ats": "ashby_portfolio",
+                 "token": "example-ventures", "source": "example-ventures"}
+        return {board["name"]: {"status": "success", "company": board, "jobs": jobs}}
+
+    def test_a_portfolio_board_names_each_job_after_its_own_company(self):
+        """Read as an ordinary row, every job on a VC's board would be
+        published under the VC's name - a whole portfolio as one company."""
+        listings = normalize._normalize_ats(
+            self._portfolio_results(fixtures.ASHBY_PORTFOLIO_JOBS))
+        self.assertEqual([l["company"] for l in listings],
+                         ["Quill Labs", "Larkspur", "Quill Labs"])
+
+    def test_a_portfolio_listing_keeps_its_board_in_source(self):
+        listing = normalize._normalize_ats(
+            self._portfolio_results(fixtures.ASHBY_PORTFOLIO_JOBS[:1]))[0]
+        self.assertEqual(listing["source"], "ashby_portfolio:example-ventures")
+        self.assertEqual(listing["url"], fixtures.ASHBY_PORTFOLIO_JOBS[0]["jobUrl"])
+        self.assertEqual(listing["lane"], "first_tpm")
+        self.assertIn("first engineer", listing["match_text"])
+
+    def test_a_portfolio_job_with_no_department_falls_back_to_the_board(self):
+        job = dict(fixtures.ASHBY_PORTFOLIO_JOBS[0], department="", team="")
+        listing, = normalize._normalize_ats(self._portfolio_results([job]))
+        self.assertEqual(listing["company"], "Example Ventures")
+
     def test_ats_listings_carry_the_full_description_as_match_text(self):
         """prefilter measures term distances over this, so it has to be the
         whole description and it has to be contiguous - not the snippet,

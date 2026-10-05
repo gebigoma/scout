@@ -249,6 +249,23 @@ class BuildRowsTest(PipelineTestCase):
             cps["classify"], cps["score"])
         self.assertEqual(rows[0]["portfolio"], "lightspeed")
 
+    def test_a_portfolio_board_listing_maps_to_the_boards_portfolio(self):
+        """Named after its portfolio company, which has no companies.csv row
+        of its own - the row is the VC's board - so the name join misses and
+        the board's source has to carry it."""
+        paths.companies_csv_path().parent.mkdir(parents=True, exist_ok=True)
+        paths.companies_csv_path().write_text(
+            "name,ats,token,source\n"
+            "Example Ventures,ashby_portfolio,example-ventures,example-ventures\n")
+        listing = fixtures.ats_listing("https://x/1", company="Quill Labs",
+                                       source="ashby_portfolio:example-ventures")
+        cps = _checkpoints([listing])
+        rows, _ = corpus.build_rows(
+            RUN_DATE, cps["normalize"], cps["prefilter"], cps["dedupe"],
+            cps["classify"], cps["score"])
+        self.assertEqual(rows[0]["portfolio"], "example-ventures")
+        self.assertEqual(rows[0]["ats"], "ashby_portfolio")
+
     def test_portfolio_is_null_when_companies_csv_is_missing(self):
         listing = fixtures.ats_listing("https://x/1", company="Acme Robotics")
         cps = _checkpoints([listing])

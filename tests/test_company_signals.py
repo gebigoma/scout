@@ -25,7 +25,6 @@ def _company_result(name, ats, jobs, status="success", token=None, **overrides):
     return {
         "status": status,
         "company": {"name": name, "ats": ats, "token": token or name.lower(),
-                    "headcount": overrides.get("headcount"),
                     "source": overrides.get("source", "")},
         "jobs": jobs,
     }
@@ -86,6 +85,29 @@ class ExtractReqTest(unittest.TestCase):
               "department": "Hardware Security", "team": ""}
         req = company_signals._extract_req(job, "ashby")
         self.assertFalse(req["is_eng"])
+
+
+    def test_workable_fields_are_read_not_lever_ones(self):
+        """Workable reached fetch_ats and normalize in #42 but not here, so a
+        workable job fell into the lever branch and came out with lever's
+        field names read off workable's payload: empty title, empty url."""
+        req = company_signals._extract_req(fixtures.WORKABLE_JOB, "workable")
+        self.assertEqual(req["title"], "Technical Program Manager")
+        self.assertEqual(req["url"], fixtures.WORKABLE_JOB["url"])
+        self.assertEqual(req["posted_date"], "2026-08-14")
+
+    def test_a_portfolio_board_department_is_not_read_as_a_team(self):
+        """On a portfolio board `department` names the company; an eng
+        verdict must come from the title, not from "Quill Labs"."""
+        eng, tpm, _ = fixtures.ASHBY_PORTFOLIO_JOBS
+        req = company_signals._extract_req(eng, "ashby_portfolio")
+        self.assertEqual(req["department"], "")
+        self.assertTrue(req["is_eng"])  # "Founding Engineer" - on title alone
+        self.assertFalse(company_signals._extract_req(tpm, "ashby_portfolio")["is_eng"])
+
+    def test_an_unsupported_ats_is_not_read_as_lever(self):
+        with self.assertRaises(ValueError):
+            company_signals._extract_req(fixtures.LEVER_JOB, "ashby-portfolio")
 
 
 class ScoreCompanyTest(unittest.TestCase):
@@ -156,6 +178,31 @@ class RunTest(PipelineTestCase):
         self.assertEqual(checkpoint["failed_companies"], 1)
         self.assertEqual(checkpoint["not_on_ats"], 1)
         self.assertEqual(checkpoint["surveyed"], 0)
+
+    def test_a_portfolio_board_is_scored_per_company_not_as_one(self):
+        """Scoring a VC's board as one company computes a hiring
+        concentration over a whole portfolio, which describes no company."""
+        fetch_ats_cp = {"companies": {
+            "Example Ventures": _company_result(
+                "Example Ventures", "ashby_portfolio", fixtures.ASHBY_PORTFOLIO_JOBS,
+                token="example-ventures", source="example-ventures"),
+        }}
+        checkpoint = company_signals.run(RUN_DATE, fetch_ats_cp)
+        by_name = {c["name"]: c for c in checkpoint["companies"]}
+        self.assertEqual(sorted(by_name), ["Larkspur", "Quill Labs"])
+        self.assertEqual(by_name["Quill Labs"]["totals"]["total"], 2)
+        self.assertEqual(by_name["Larkspur"]["totals"]["total"], 1)
+        self.assertEqual(by_name["Quill Labs"]["source"], "example-ventures")
+
+    def test_an_invalid_ats_row_is_not_counted_as_a_fetch_failure(self):
+        fetch_ats_cp = {"companies": {
+            "Typo Co": _company_result("Typo Co", "ashby-portfolio", [], status="invalid"),
+        }}
+        checkpoint = company_signals.run(RUN_DATE, fetch_ats_cp)
+        self.assertEqual(checkpoint["failed_companies"], 0)
+        self.assertEqual(checkpoint["invalid_ats"], 1)
+        self.assertIn("1 with an unsupported ats value",
+                      paths.signals_path(RUN_DATE).read_text())
 
     def test_volume_floor_excludes_low_absolute_count_despite_high_concentration(self):
         under_jobs = [_gh_job("Software Engineer", 5), _gh_job("Software Engineer", 10)]

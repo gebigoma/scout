@@ -77,6 +77,26 @@ class ListStateTest(PipelineTestCase):
             len({companies.ABSENT, companies.EMPTY, companies.POPULATED}), 3)
 
 
+class PortfolioBoardTest(unittest.TestCase):
+    def test_a_portfolio_board_fetches_as_its_base_ats(self):
+        self.assertEqual(companies.base_ats("ashby_portfolio"), "ashby")
+        self.assertEqual(companies.base_ats("greenhouse"), "greenhouse")
+        self.assertTrue(companies.is_portfolio_board("ashby_portfolio"))
+        self.assertFalse(companies.is_portfolio_board("ashby"))
+
+    def test_a_portfolio_job_is_named_from_its_department(self):
+        self.assertEqual(companies.portfolio_company(
+            {"department": "Quill Labs", "team": "Other"}, "Example Ventures"), "Quill Labs")
+
+    def test_team_then_the_board_name_are_the_fallbacks(self):
+        """A job is never left nameless - the board's own name is the last
+        resort, which at worst reads as the VC hiring for itself."""
+        self.assertEqual(companies.portfolio_company(
+            {"department": "", "team": "Larkspur"}, "Example Ventures"), "Larkspur")
+        self.assertEqual(companies.portfolio_company({}, "Example Ventures"),
+                         "Example Ventures")
+
+
 class CompaniesExampleTest(unittest.TestCase):
     """The committed template is the only description of this schema a fresh
     clone gets, since the real companies.csv is private. Load it with the real

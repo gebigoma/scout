@@ -17,7 +17,7 @@ import re
 import statistics
 from datetime import datetime, timezone
 
-from . import logging_setup, manifest, paths
+from . import companies, logging_setup, manifest, paths
 
 # Primary classifier. Word-boundary on \bml\b for the same reason
 # prefilter.py word-bounds \btpm\b - unbounded "ml" matches inside unrelated
@@ -64,7 +64,14 @@ def _parse_date(raw):
 
 def _extract_req(job: dict, ats: str) -> dict:
     """Per-ATS field extraction from a RAW job dict, mirroring the shapes
-    _normalize_ats (normalize.py) uses but keeping department."""
+    _normalize_ats (normalize.py) uses but keeping department.
+
+    A portfolio board's `department` names the portfolio company, not a team,
+    so it is dropped there: "Listen Labs" is no evidence either way about
+    whether a req is engineering, and leaving it in would let the department
+    half of the eng test read a company name. Such reqs are judged on title."""
+    portfolio = companies.is_portfolio_board(ats)
+    ats = companies.base_ats(ats)
     if ats == "greenhouse":
         title = job.get("title", "")
         url = job.get("absolute_url", "")
@@ -75,7 +82,17 @@ def _extract_req(job: dict, ats: str) -> dict:
         url = job.get("jobUrl", "")
         posted_raw = job.get("publishedAt", "")
         dept = " ".join(filter(None, [job.get("department", ""), job.get("team", "")]))
-    else:  # lever
+    elif ats == "workable":
+        # Missing until 2026-10-05: workable was added to fetch_ats and
+        # normalize in #42 but not here, so a workable job fell into the lever
+        # branch below and came out with an empty title and url - lever's
+        # field names, workable's payload. No workable row existed yet, which
+        # is the only reason it never fired.
+        title = job.get("title", "")
+        url = job.get("url") or job.get("shortlink", "")
+        posted_raw = job.get("published_on") or job.get("created_at", "")
+        dept = job.get("department", "") or ""
+    elif ats == "lever":
         title = job.get("text", "")
         url = job.get("hostedUrl", "")
         # Lever's createdAt is epoch milliseconds, not ISO - the one ATS
@@ -89,7 +106,13 @@ def _extract_req(job: dict, ats: str) -> dict:
         except (TypeError, ValueError, OSError):
             posted_raw = ""
         dept = (job.get("categories") or {}).get("team", "")
+    else:
+        # Unreachable through run(): fetch_ats marks an unsupported ats
+        # "invalid", never "success". Lever was the silent default here once.
+        raise ValueError(f"unsupported ats {ats!r}")
 
+    if portfolio:
+        dept = ""
     title = _normalize_ws(title)
     dept = _normalize_ws(dept)
     is_eng = bool(ENG_TITLE.search(title) or ENG_DEPT.search(dept))
@@ -137,11 +160,16 @@ def _render_markdown(checkpoint: dict, qualified: list, run_date: str) -> str:
         f"the window."
     )
     lines.append("")
+    invalid_note = ""
+    if checkpoint.get("invalid_ats"):
+        invalid_note = (f"; {checkpoint['invalid_ats']} with an unsupported ats "
+                        f"value in companies.csv")
     lines.append(
         f"{checkpoint['surveyed']} companies surveyed successfully "
         f"({checkpoint['zero_req_companies']} with zero open reqs); "
         f"{checkpoint['not_on_ats']} not reachable on their configured ATS "
-        f"(404); {checkpoint['failed_companies']} failed to fetch this run."
+        f"(404); {checkpoint['failed_companies']} failed to fetch this run"
+        f"{invalid_note}."
     )
     lines.append("")
 
@@ -186,7 +214,7 @@ def run(run_date: str, fetch_ats_checkpoint: dict = None,
         checkpoint = {
             "companies": [], "window_days": window_days, "min_eng": min_eng,
             "total_companies": 0, "surveyed": 0, "zero_req_companies": 0,
-            "not_on_ats": 0, "failed_companies": 0, "qualified": 0,
+            "not_on_ats": 0, "failed_companies": 0, "invalid_ats": 0, "qualified": 0,
         }
         paths.atomic_write_json(paths.checkpoint_path(run_date, "company_signals"), checkpoint)
         logging_setup.log(logger, "company_signals", "first_tpm lane inactive; skipped")
@@ -195,29 +223,44 @@ def run(run_date: str, fetch_ats_checkpoint: dict = None,
 
     try:
         companies_out = []
-        zero_req = not_on_ats = failed = 0
+        zero_req = not_on_ats = failed = invalid = 0
         for info in fetch_ats_checkpoint["companies"].values():
             status = info["status"]
             if status == "skipped":  # 404 - not on this ATS, expected/normal
                 not_on_ats += 1
                 continue
+            if status == "invalid":  # a typo in the ats column - data, not an outage
+                invalid += 1
+                continue
             if status != "success":
                 failed += 1
                 continue
             company = info["company"]
-            reqs = [_extract_req(job, company["ats"]) for job in info["jobs"]]
-            if not reqs:
+            # A portfolio board is many companies behind one fetch; scoring
+            # it as one would compute a hiring concentration over a whole
+            # VC portfolio, which describes no company at all. Split it back
+            # into the companies it carries.
+            if companies.is_portfolio_board(company["ats"]):
+                groups = {}
+                for job in info["jobs"]:
+                    groups.setdefault(
+                        companies.portfolio_company(job, company["name"]), []).append(job)
+            else:
+                groups = {company["name"]: info["jobs"]}
+            if not info["jobs"]:
                 zero_req += 1
                 continue
-            companies_out.append({
-                "name": company["name"], "ats": company["ats"], "token": company["token"],
-                "source": company.get("source", ""),
-                "totals": _score_company(reqs, window_days),
-                "reqs": reqs,
-                # Populated by a future funding.py enrichment pass - reserved
-                # here so that pass needs no checkpoint restructuring later.
-                "funding": None,
-            })
+            for name, jobs in groups.items():
+                reqs = [_extract_req(job, company["ats"]) for job in jobs]
+                companies_out.append({
+                    "name": name, "ats": company["ats"], "token": company["token"],
+                    "source": company.get("source", ""),
+                    "totals": _score_company(reqs, window_days),
+                    "reqs": reqs,
+                    # Populated by a future funding.py enrichment pass - reserved
+                    # here so that pass needs no checkpoint restructuring later.
+                    "funding": None,
+                })
 
         surveyed = len(companies_out) + zero_req
         qualified = sorted(
@@ -233,6 +276,7 @@ def run(run_date: str, fetch_ats_checkpoint: dict = None,
             "zero_req_companies": zero_req,
             "not_on_ats": not_on_ats,
             "failed_companies": failed,
+            "invalid_ats": invalid,
             "qualified": len(qualified),
         }
         paths.atomic_write_json(paths.checkpoint_path(run_date, "company_signals"), checkpoint)
@@ -250,10 +294,11 @@ def run(run_date: str, fetch_ats_checkpoint: dict = None,
 
     logging_setup.log(logger, "company_signals", "scored companies",
                        surveyed=surveyed, qualified=len(qualified), zero_req=zero_req,
-                       not_on_ats=not_on_ats, failed=failed,
+                       not_on_ats=not_on_ats, failed=failed, invalid_ats=invalid,
                        window_days=window_days, min_eng=min_eng)
     manifest.stage_succeeded(run_date, "company_signals", surveyed=surveyed,
                               qualified=len(qualified), zero_req_companies=zero_req,
                               not_on_ats=not_on_ats, failed_companies=failed,
+                              invalid_ats=invalid,
                               window_days=window_days, min_eng=min_eng)
     return checkpoint
