@@ -27,7 +27,7 @@ LANES = {
     },
     lanes.FIRST_TPM: {
         "label": "First TPM",
-        "sources": "Greenhouse, Ashby, and Lever boards of VC-portfolio companies",
+        "sources": "Greenhouse, Ashby, Lever and Workable boards of VC-portfolio companies",
         "criteria": "ROLE_CRITERIA_FIRST_TPM.md",
         "categories": {
             "first_tpm": "First Technical Program Manager",
@@ -75,19 +75,6 @@ def _render_markdown(run_date: str, candidate_count: int,
     )
     lines.append("")
 
-    # The criteria files are linked above and still describe every role,
-    # including paused ones. Without this line a reader would take the
-    # criteria at face value and read a paused role's absence as a quiet
-    # week for it, which is the one thing this digest is supposed never to
-    # be ambiguous about.
-    paused_labels = [label for lane in active_lanes
-                     for label in paused_categories(lane).values()]
-    if paused_labels:
-        lines.append(
-            f"Paused: {', '.join(paused_labels)} — criteria retained, not "
-            f"matched this run."
-        )
-        lines.append("")
 
     for lane in active_lanes:
         lane_info = LANES[lane]
@@ -128,6 +115,22 @@ def _render_markdown(run_date: str, candidate_count: int,
             lines.append(f"  {listing['url']}")
             lines.append(f"  {m['rationale']}")
             lines.append("")
+
+    # Last, in its own section. The criteria files linked in the preamble
+    # still describe a paused role, so its absence has to be stated, or a
+    # reader would take it as a quiet week for that role - but it says nothing
+    # about this week's results, so it goes after them, not before. A section
+    # rather than a trailing paragraph because digest_archive attaches loose
+    # prose to whichever section precedes it, which would file the note under
+    # the last role's heading.
+    paused_labels = [label for lane in active_lanes
+                     for label in paused_categories(lane).values()]
+    if paused_labels:
+        lines.append("## Paused")
+        lines.append("")
+        lines.append(f"{', '.join(paused_labels)} — criteria retained, not matched "
+                     f"this run.")
+        lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
 
