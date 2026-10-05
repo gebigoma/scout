@@ -61,6 +61,7 @@ def run(run_date: str) -> dict:
     manifest.stage_started(run_date, "fetch_ats")
 
     company_list = companies.load_companies()
+    list_state = companies.list_state()
     results = {}
     for company in company_list:
         attempts_made = 0
@@ -113,10 +114,30 @@ def run(run_date: str) -> dict:
     checkpoint = {"companies": results}
     paths.atomic_write_json(paths.checkpoint_path(run_date, "fetch_ats"), checkpoint)
 
+    # Three different ways this lane ends up with nothing, which the manifest
+    # has to keep apart because each needs a different fix: there is no
+    # company list (populate one), the list has rows but no company is
+    # reachable on a supported ATS (the tokens are wrong, or the company is on
+    # a fourth ATS), or the list fetched fine and the week was simply quiet.
+    # Only the last is an honest quiet week, and all three previously
+    # published the identical "No matches this week".
+    yielded_nothing = bool(company_list) and not succeeded
     logging_setup.log(logger, "fetch_ats", "fetched ATS listings",
                        company_count=len(company_list), succeeded=len(succeeded),
-                       skipped=len(skipped), failed=failed)
+                       skipped=len(skipped), failed=failed,
+                       company_list_state=list_state, yielded_nothing=yielded_nothing)
+    if list_state != companies.POPULATED:
+        logging_setup.log(logger, "fetch_ats", "no company list to fetch",
+                           company_list_state=list_state,
+                           remedy="populate data/companies.csv "
+                                  "(see data/companies.example.csv)")
+    elif yielded_nothing:
+        logging_setup.log(logger, "fetch_ats", "company list yielded no listings",
+                           company_count=len(company_list), skipped=len(skipped),
+                           failed=len(failed))
     manifest.stage_succeeded(run_date, "fetch_ats",
                               company_count=len(company_list), succeeded=len(succeeded),
-                              skipped=len(skipped), failed=failed)
+                              skipped=len(skipped), failed=failed,
+                              company_list_state=list_state,
+                              yielded_nothing=yielded_nothing)
     return checkpoint

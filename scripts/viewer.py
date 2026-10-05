@@ -40,6 +40,18 @@ COUNTERS = [
     ("failed chunks", "classify", "failed_chunk_indices"),
 ]
 
+# Not a count, so not a COUNTERS row: this is the answer to "did the
+# first_tpm lane have anything to work with", which an empty digest cannot
+# distinguish from a quiet week. "absent"/"empty" mean no company list;
+# "yielded nothing" means the list fetched and no company was reachable on a
+# supported ATS. Only a populated list that fetched is a blank cell.
+def _company_list_cell(run):
+    st = _stage(run, "fetch_ats")
+    state = st.get("company_list_state")
+    if state in (None, "populated"):
+        return "yielded nothing" if st.get("yielded_nothing") else ""
+    return state
+
 
 def _stage(run, name):
     stages = run.get("stages")
@@ -50,12 +62,50 @@ def _stage(run, name):
 
 
 def _duration_s(run):
+    """Wall clock from the run's first start to its last finish.
+
+    This is not how long the pipeline worked. Checkpointing is the control
+    flow here, so a date resumed days later is the normal path, not an
+    exception: 2026-08-31 started 08-31 and finished 09-03, giving a wall
+    clock of 4787m over about 65 minutes of actual work. Read alongside
+    _worked_s, which is the number people usually mean."""
     try:
         start = datetime.fromisoformat(run["started_at"])
         end = datetime.fromisoformat(run["finished_at"])
         return round((end - start).total_seconds(), 1)
     except (KeyError, TypeError, ValueError):
         return None
+
+
+def _worked_s(run):
+    """Summed stage durations - time the pipeline was actually running.
+
+    None when no stage reports a duration at all, which renders as an em dash
+    rather than a misleading 0. A stage that failed before finishing has no
+    duration and contributes nothing, so this is time accounted for, not a
+    claim that every stage ran."""
+    stages = run.get("stages")
+    if not isinstance(stages, dict):
+        return None
+    total = None
+    for st in stages.values():
+        if not isinstance(st, dict):
+            continue
+        d = st.get("duration_s")
+        if isinstance(d, (int, float)):
+            total = d if total is None else total + d
+    return round(total, 1) if total is not None else None
+
+
+def _resumed(run):
+    """Whether this date was resumed: wall clock materially exceeds the work.
+
+    Flagged rather than hidden - a resumed run is a run whose date stayed
+    open, which is worth seeing, but not the same claim as a slow run."""
+    wall, worked = _duration_s(run), _worked_s(run)
+    if wall is None or worked is None:
+        return False
+    return wall - worked > 600
 
 
 def _summarize(dir_name, run):
@@ -66,9 +116,12 @@ def _summarize(dir_name, run):
         "date": date if isinstance(date, str) and date else dir_name,
         "status": run.get("status"),
         "duration_s": _duration_s(run),
+        "worked_s": _worked_s(run),
+        "resumed": _resumed(run),
         "stages": stage_status,
         "counters": counters,
         "digest_status": stage_status["digest"],
+        "company_list": _company_list_cell(run),
     }
 
 
@@ -128,6 +181,8 @@ td.ok { background: #d9f2de; color: #14532d; font-weight: 600; text-align: left;
 td.bad { background: #fadadd; color: #7f1d1d; font-weight: 600; text-align: left; }
 td.other { color: #555; text-align: left; }
 th.key, td.key { border-left: 2px solid #999; border-right: 2px solid #999; font-weight: 600; }
+.flag { color: #92400e; background: #fef3c7; border-radius: 3px; padding: 0 .3rem; font-size: .85em; }
+td.flagcell { color: #7f1d1d; background: #fef3c7; font-weight: 600; }
 nav { margin: 0 0 1.25rem; }
 nav a, nav strong { margin-right: 1rem; }
 nav a { color: #1d4ed8; }
@@ -181,7 +236,7 @@ def _page(title, nav_html, body_html):
 
 
 def render(runs):
-    head = ["date", "run status", "duration"]
+    head = ["date", "run status", "worked", "wall clock", "company list"]
     head += [h for h, _, _ in COUNTERS]
     head += list(manifest.STAGES)  # includes digest, so no separate digest column
 
@@ -191,9 +246,19 @@ def render(runs):
 
     rows = []
     for r in runs:
+        # Worked first: it is the number "how long did the run take" means.
+        # Wall clock sits beside it, marked when the two diverge, so a date
+        # that was resumed reads as resumed rather than as a 3-day run.
+        wall = _duration_text(r["duration_s"])
+        if r.get("resumed"):
+            wall += " <span class=\"flag\">resumed</span>"
         cells = ['<td class="txt">%s</td>' % _text(r["date"]),
                  _status_cell(r["status"]),
-                 "<td>%s</td>" % _duration_text(r["duration_s"])]
+                 "<td>%s</td>" % _duration_text(r.get("worked_s")),
+                 '<td class="txt">%s</td>' % wall,
+                 '<td class="%s">%s</td>' % (
+                     "txt flagcell" if r.get("company_list") else "txt",
+                     _text(r.get("company_list") or ""))]
         for header, stage, key in COUNTERS:
             cls = ' class="key"' if header == "role terms seen" else ""
             cells.append("<td%s>%s</td>" % (cls, _text(r["counters"][(stage, key)])))

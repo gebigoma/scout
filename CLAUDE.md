@@ -110,6 +110,17 @@ other).
   configuration and a genuinely empty week don't produce the same green run,
   and the digest preamble names the paused role because the criteria file it
   links to still describes it.
+- **The viewer's `worked` column is the number, `wall clock` is the window.**
+  `scripts/viewer.py` reports both because checkpointing is the control flow:
+  a date resumed days later is the normal path, so wall clock from first start
+  to last finish is not how long the pipeline worked. 2026-08-31 started 08-31
+  and finished 09-03 — 4787m of wall clock over about 65m of summed stage
+  durations — and a single-column view misleads on exactly the runs most worth
+  reading. A run whose wall clock exceeds its work by more than ten minutes is
+  marked `resumed` rather than quietly reconciled, because a date that stayed
+  open is itself worth seeing. A stage that failed before finishing reports no
+  duration and contributes nothing, so `worked` is time accounted for, not a
+  claim that every stage ran.
 - **One run at a time**, via `flock` on `logs/run.lock`. A second run exits 0
   with a message — it is not a failure and must not alert like one.
 - **`retention.sweep` counts runs, not days** (`RETAIN_RUNS` = 8), and runs only
@@ -184,19 +195,28 @@ other).
   `data/known_good.example.csv` are committed in their place — same schema,
   invented rows — and `.example.csv` escapes both the gitignore patterns and
   `NEVER_COMMIT`, which match the real filenames exactly.
-- **A missing or unpopulated `data/companies.csv` is silent, and still is.**
+- **A missing or unpopulated `data/companies.csv` is no longer silent.**
   `companies.load_companies` returns `[]` rather than raising, so a clone
   without it runs the first_tpm lane over zero companies and publishes "No
   matches this week" — indistinguishable from an honest quiet week. The
   committed template does *not* fix this: its tokens are invented, so every row
   404s and is skipped as "not on this ATS", producing the same empty result by
   a different route. The template only makes the schema discoverable so the
-  list can be populated for real. Closing the gap properly means distinguishing
-  "no company list" from "list yielded nothing" and surfacing it in the
-  manifest — currently unimplemented, and worth doing before trusting a quiet
-  week from this lane. `CompaniesExampleTest` loads the template through the
-  real loader so it can't drift from the schema, which is a smaller claim: it
-  keeps the documentation honest, not the run.
+  list can be populated for real. `companies.list_state` now names the three
+  cases the empty digest used to merge — `absent` (no file), `empty` (a file
+  with no data rows) and `populated` — and `fetch_ats` records that plus
+  `yielded_nothing` (rows fetched, no company reachable on a supported ATS) in
+  the manifest, so "there is no list", "the tokens are all wrong" and "the
+  week was quiet" stop being the same green run. Each needs a different fix,
+  which is why each gets a different name; only the third is an honest quiet
+  week. The run-health viewer surfaces it as a `company list` column, because
+  a manifest field nobody opens is a smaller improvement than it looks. What
+  is *not* wired is an ntfy alert on those states — `digest` alerts on a
+  skipped publish, and the same argument applies here, but adding a new alert
+  path changes what the scheduled job does unprompted and is the owner's call.
+  `CompaniesExampleTest` loads the template through the real loader so it
+  can't drift from the schema, which is a smaller claim: it keeps the
+  documentation honest, not the run.
 - **`digest` commits exactly `matches/<date>.md` and `data/seen.json`**, and
   `hygiene.DIGEST_PATH_PATTERN` must match that list exactly. When it didn't,
   the 2026-08-17 run rendered and committed its digest, then had the push
