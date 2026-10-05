@@ -533,6 +533,22 @@ No network: LLM stages run against a stubbed CLI, the six sources against
 captured response shapes, and `digest`'s commit/push path against a throwaway
 repo with a local bare remote (`init_repo_with_remote`).
 
+**The suite runs inside digest's push, while the pipeline holds the run lock,
+so no test may depend on the real repo's runtime state.** `.githooks/pre-push`
+ends with a full `unittest` run, and `digest` pushes from *inside* a pipeline
+run — which is holding the real `logs/run.lock`. On 2026-10-05
+`git-freshen.sh` checked the lock next to its own location rather than the
+target repo's; its tests run it against temp clones, so whenever a real run
+held the real lock, seven freshen tests saw "pipeline run in progress",
+failed, and the hook rejected the push. That stranded the `--force` run's
+digest that day, and would have stranded every scheduled run after #35
+merged; this morning's 09:10 publish only got through because #35 hadn't
+landed yet. Running the suite by hand passes, which is exactly why it hid. The
+lock check now reads the target repo's lock (and doesn't create one where none
+exists). To check a change against this, run the suite with the real lock
+held — `with runlock.single_run(): ...` in another process — not just
+normally.
+
 **The suite ignores any inherited git location.** `tests/__init__.py` strips
 `GIT_DIR`, `GIT_WORK_TREE` and the other variables that tell git which
 repository to act on, because they override the `cwd` every test helper

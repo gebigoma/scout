@@ -70,19 +70,37 @@ _notify(sys.argv[3], title=sys.argv[2], priority='high')
 }
 
 runlock_held() {
-  # Exit 0 (shell true) if a pipeline run is in progress. Fast-forwarding
-  # main underneath a running pipeline would change the working tree mid-run.
+  # Exit 0 (shell true) if a pipeline run is in progress *in the repo being
+  # freshened* ($1). Fast-forwarding main underneath a running pipeline would
+  # change the working tree mid-run.
+  #
+  # The lock is the target repo's, not the one beside this script. In
+  # production they are the same directory; in the test suite they are not -
+  # tests run this script against temp clones - and until 2026-10-05 the
+  # check read the real repo's logs/run.lock regardless. The pre-push hook
+  # runs the suite during digest's push, which is exactly when a pipeline run
+  # holds that lock, so seven freshen tests saw "run in progress", failed,
+  # and the hook rejected every digest push. The 2026-10-05 --force run's
+  # digest was stranded that way, and Sunday's scheduled run would have been.
   python3 -c "
 import sys
+from pathlib import Path
 sys.path.insert(0, sys.argv[1])
+from pipeline import paths
+paths.PROJECT_DIR = Path(sys.argv[2])
 from pipeline import runlock
+# No lock file means no run has ever taken the lock here, so none holds it -
+# and taking it to find out would create logs/run.lock (and logs/) in a repo
+# that may not ignore them, tripping the dirty-worktree guard next time.
+if not (paths.PROJECT_DIR / 'logs' / 'run.lock').exists():
+    sys.exit(1)
 try:
     with runlock.single_run():
         pass
     sys.exit(1)  # lock was free (and is released again already)
 except runlock.AlreadyRunning:
     sys.exit(0)  # a pipeline run is in progress
-" "$SCRIPTS_DIR"
+" "$SCRIPTS_DIR" "$1"
 }
 
 freshen() {
@@ -105,7 +123,7 @@ freshen() {
     exit 0
   fi
 
-  if runlock_held; then
+  if runlock_held "$repo"; then
     echo "git-freshen: pipeline run in progress, skipping"
     exit 0
   fi
