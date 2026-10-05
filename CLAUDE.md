@@ -160,6 +160,23 @@ other).
   counting it would push every one under `SCORE_FLOOR` into "Rejected on
   scoring" — a different claim entirely, the pipeline disagreeing with
   itself — and quietly empty the section.
+- **A location naming the US alongside other countries is US-eligible;
+  fields that disagree are not.** `prefilter._is_us_eligible` used to drop
+  any listing whose `location_text` named a non-US country, so "United
+  States & Canada" failed on "Canada". That covered 564 listings across the
+  retained runs, one of them a remote TPM opening dropped on every run from
+  2026-09-14 (issue #46). One field listing several places is one posting
+  open in all of them. Fields that *disagree* are still a drop:
+  - A non-US machine code (Lever's `country`, a single Workable
+    `country_code`) still beats any text.
+  - Greenhouse is read only from `location.name`, so the Armada case
+    (`location.name` says Australia, a custom metadata field says US) is
+    still dropped.
+
+  `US_TERM` matches "US", "U.S." and "USA" case-sensitively, so a lowercase
+  "us" in prose can't qualify. City names aren't recognised: "New York;
+  Toronto, Canada" is still dropped, because it names a US city but not the
+  US.
 - **Word-boundary match on `\btpm\b`** in `prefilter.py` (and `\bml\b` in
   `company_signals.py`) — the first_tpm lane sources heavily from
   infra/security companies where "TPM" means Trusted Platform Module.

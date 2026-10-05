@@ -81,14 +81,26 @@ def _match_text(listing: dict) -> str:
     return listing.get("match_text") or listing.get("snippet", "")
 
 
-# US-eligibility allowlist: keep unless a specific non-US country is named.
-# lever gives an ISO-3166 alpha-2 `location_country_code`, checked directly
-# and authoritatively - a non-US code disqualifies regardless of what any
-# free-text field says (Armada's Greenhouse posting had location.name =
-# "Australia (Remote)" *and* a custom metadata field claiming "United States
-# (Remote)" for the same listing; erring toward dropping is the point, not
-# a bug to reconcile). greenhouse/ashby only give free text, checked against
-# this country-name list instead.
+# US-eligibility allowlist: keep unless a specific non-US country is named
+# and the US is not. lever gives an ISO-3166 alpha-2
+# `location_country_code`, checked directly and authoritatively - a non-US
+# code disqualifies regardless of what any free-text field says.
+# greenhouse/ashby only give free text, checked against this country-name
+# list instead.
+#
+# Two cases that look alike and are not (issue #46):
+#   - Fields that *disagree*: Armada's Greenhouse posting had location.name =
+#     "Australia (Remote)" and a custom metadata field claiming "United States
+#     (Remote)". Erring toward dropping is the point there, not a bug to
+#     reconcile. A non-US code beats US text for the same reason, and
+#     normalize reads only location.name for Greenhouse, so that metadata
+#     never reaches this check.
+#   - One field listing *several places*: "United States & Canada" is a single
+#     posting open in both, and the user can take it. Dropping these on
+#     "Canada" cost a remote TPM opening on every run from 2026-09-14; across
+#     the retained runs 564 listings named the US alongside another country,
+#     and that opening was the only role-fit one. So a location naming the US
+#     stays eligible whatever else it names.
 #
 # Known false-positive: "Georgia" is both a country and a US state, and
 # nothing here disambiguates them - a domestic listing that spells out the
@@ -139,13 +151,19 @@ NON_US_COUNTRY_TERM = re.compile(
     r"\b(" + "|".join(re.escape(c) for c in NON_US_COUNTRIES) + r")\b",
     re.IGNORECASE,
 )
+# The abbreviations are case-sensitive so "us" in prose can't qualify; real
+# location strings write "US", "U.S." or "USA".
+US_TERM = re.compile(r"(?i:\bunited states\b)|\bU\.S\.(?:A\.)?|\bUSA\b|\bUS\b")
 
 
 def _is_us_eligible(listing: dict) -> bool:
     code = (listing.get("location_country_code") or "").strip().upper()
     if code and code != "US":
         return False
-    return not NON_US_COUNTRY_TERM.search(listing.get("location_text", "") or "")
+    text = listing.get("location_text", "") or ""
+    if not NON_US_COUNTRY_TERM.search(text):
+        return True
+    return bool(US_TERM.search(text))
 
 
 def evaluate(listing: dict) -> dict:

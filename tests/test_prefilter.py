@@ -164,6 +164,40 @@ class EvaluateTest(unittest.TestCase):
         self.assertFalse(result["passes"])
         self.assertFalse(result["us_eligible"])
 
+    def test_a_location_naming_the_us_and_another_country_passes(self):
+        """Issue #46. One field listing several places is a posting open in
+        all of them, not a conflict. These are real location strings from the
+        retained runs, every one of which used to be dropped on its non-US
+        half."""
+        text = "We are hiring our first TPM to run engineering programs."
+        for location in ("United States & Canada",
+                         "Remote: United States; Remote: Canada",
+                         "North America; United States; Canada",
+                         "SF or Remote (US/Canada)",
+                         "Remote U.S.; Remote - Canada",
+                         "USA; Chile; UK; Uruguay; Brazil",
+                         "United States (Remote); United Kingdom (Remote)"):
+            with self.subTest(location=location):
+                result = prefilter.evaluate(_first_tpm_listing(
+                    text, location_text=location, location_country_code=""))
+                self.assertTrue(result["us_eligible"])
+                self.assertTrue(result["passes"])
+
+    def test_us_text_does_not_override_a_non_us_country_code(self):
+        """A machine-readable code is authoritative over any text, so a
+        non-US code alongside US text is fields disagreeing - still a drop."""
+        text = "We are hiring our first TPM to run engineering programs."
+        result = prefilter.evaluate(_first_tpm_listing(
+            text, location_text="United States; Canada", location_country_code="CA"))
+        self.assertFalse(result["us_eligible"])
+
+    def test_lowercase_us_in_a_location_is_not_read_as_the_country(self):
+        text = "We are hiring our first TPM to run engineering programs."
+        result = prefilter.evaluate(_first_tpm_listing(
+            text, location_text="Toronto, Canada - visit us onsite",
+            location_country_code=""))
+        self.assertFalse(result["us_eligible"])
+
     def test_matching_uses_match_text_not_the_truncated_snippet(self):
         """The bug that made this lane return zero candidates for its entire
         life (issue #13). normalize's snippet is a 400-char head, and the
@@ -198,9 +232,10 @@ class EvaluateTest(unittest.TestCase):
         self.assertTrue(result["passes"])
 
     def test_conflicting_location_signals_are_dropped_not_reconciled(self):
-        """A US country code alongside free text naming another country is
-        still dropped - any non-US signal disqualifies, per the Armada case
-        where Greenhouse's own fields disagreed with each other."""
+        """A US country code alongside free text naming only another country
+        is still dropped - fields that disagree are not reconciled, per the
+        Armada case where Greenhouse's own fields disagreed with each other.
+        Contrast a single field naming both, which passes (issue #46)."""
         text = "We are hiring our first TPM to run engineering programs."
         result = prefilter.evaluate(_first_tpm_listing(
             text, location_text="Australia (Remote)", location_country_code="US"))
@@ -327,18 +362,18 @@ class RealPayloadTest(unittest.TestCase):
         self.assertFalse(result["us_eligible"])
         self.assertFalse(result["passes"])
 
-    def test_a_tpm_open_in_the_us_and_canada_is_dropped(self):
-        """Pins current behaviour, not a judgment that it's right. Ashby's
-        `secondaryLocations` lists "United States" and "Canada", normalize
-        joins them into `location_text`, and "Canada" alone fails the
-        country check - so a remote TPM role open to US candidates is
-        dropped. One real opening went this way on every run from 2026-09-14
-        to 2026-10-05. Issue #46 asks whether it should."""
-        listing = _normalized("ashby", "non_us_tpm")
-        self.assertIn("United States", listing["location_text"])
+    def test_a_tpm_open_in_the_us_and_canada_passes(self):
+        """Issue #46. Ashby's `secondaryLocations` lists "United States" and
+        "Canada", and normalize joins them into `location_text`. "Canada"
+        alone used to fail the country check, so this remote TPM role, open
+        to US candidates, was dropped on every run from 2026-09-14 to
+        2026-10-05."""
+        listing = _normalized("ashby", "us_and_canada_tpm")
+        self.assertIn("Canada", listing["location_text"])
         result = prefilter.evaluate(listing)
         self.assertTrue(result["tier3"])
-        self.assertFalse(result["us_eligible"])
+        self.assertTrue(result["us_eligible"])
+        self.assertTrue(result["passes"])
 
     def test_a_lever_country_code_is_authoritative(self):
         listing = _normalized("lever", "no_role_term")
@@ -364,7 +399,7 @@ class RealPayloadRunTest(PipelineTestCase):
         entries = {f"{ats}/{name}": fixtures.payload(ats, name)
                    for ats, name in [
                        ("ashby", "founding_tpm"),
-                       ("ashby", "non_us_tpm"),
+                       ("ashby", "us_and_canada_tpm"),
                        ("ashby", "program_manager_not_tpm"),
                        ("greenhouse", "evidence_past_snippet_cap"),
                        ("greenhouse", "non_us_tpm"),
@@ -379,16 +414,17 @@ class RealPayloadRunTest(PipelineTestCase):
             sorted(l["title"] for l in checkpoint["listings"]),
             ["Founding Technical Program Manager",
              "Senior Manager, Public Sector Partners",
-             "Senior Technical Program Manager"])
+             "Senior Technical Program Manager",
+             "Technical Program Manager"])
         for listing in checkpoint["listings"]:
             self.assertNotIn("match_text", listing)
 
         entry = manifest.load(RUN_DATE)["stages"]["prefilter"]
         self.assertEqual(entry["first_tpm_seen"], 8)
-        self.assertEqual(entry["passed"], 3)
-        self.assertEqual(entry["title_only"], 1)
+        self.assertEqual(entry["passed"], 4)
+        self.assertEqual(entry["title_only"], 2)
         self.assertEqual(entry["near_misses"], 2)
-        self.assertEqual(entry["filtered_non_us"], 2)
+        self.assertEqual(entry["filtered_non_us"], 1)
         self.assertEqual(entry["role_terms_seen"], 7)
 
 

@@ -14,7 +14,7 @@ issue #13 was a bug in what `normalize` hands `prefilter`.
 | `greenhouse/stitched_false_adjacency` | "not a program management role"; the stitched snippet fakes tier-2 proximity |
 | `ashby/program_manager_not_tpm` | a program-manager title `ROLE_TERM` must not match |
 | `greenhouse/non_us_tpm` | `location.name` says Australia, a metadata field says US |
-| `ashby/non_us_tpm` | open in US *and* Canada, currently dropped (#46) |
+| `ashby/us_and_canada_tpm` | open in US *and* Canada, passes (#46) |
 | `lever/no_role_term` | `country` code, and the `lists` sections normalize ignores (#44) |
 
 ## Kept from the real payload
