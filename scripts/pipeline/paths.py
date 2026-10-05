@@ -67,8 +67,15 @@ def seen_path() -> Path:
     return PROJECT_DIR / "data" / "seen.json"
 
 
+def matches_dir() -> Path:
+    """The directory of published digests. Like runs_dir, deliberately does NOT
+    mkdir: a read-only consumer (the viewer's digest archive) must not create
+    matches/ as a side effect."""
+    return PROJECT_DIR / "matches"
+
+
 def matches_path(run_date: str) -> Path:
-    return PROJECT_DIR / "matches" / f"{run_date}.md"
+    return matches_dir() / f"{run_date}.md"
 
 
 def signals_path(run_date: str) -> Path:
@@ -107,3 +114,7 @@ def viewer_dir() -> Path:
 
 def viewer_index_path() -> Path:
     return viewer_dir() / "index.html"
+
+
+def viewer_digests_path() -> Path:
+    return viewer_dir() / "digests.html"
