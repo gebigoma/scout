@@ -108,6 +108,13 @@ def company_candidates_path() -> Path:
     return PROJECT_DIR / "data" / "company_candidates.csv"
 
 
+def company_candidates_dismissed_path() -> Path:
+    """Boards a person has reviewed and rejected - agencies, wrong-stage
+    companies - so the regenerated review queue stops offering them. Hand
+    maintained, and private for the same reason: it names companies."""
+    return PROJECT_DIR / "data" / "company_candidates_dismissed.csv"
+
+
 def prompts_dir() -> Path:
     return Path(__file__).resolve().parent / "prompts"
 

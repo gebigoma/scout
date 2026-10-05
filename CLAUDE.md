@@ -271,7 +271,16 @@ other).
   API hosts. Other discovery sources (EDGAR Form D, resolved short links) were
   considered and kept out of this script — they yield names, not tokens, and
   need the network — but the queue's leading columns are `companies.csv`'s
-  own, so they can write to the same file later.
+  own, so they can write to the same file later. Because the queue is
+  regenerated wholesale, a board judged and rejected used to come back on
+  every run; `data/company_candidates_dismissed.csv` (`ats,token,reason,
+  dismissed_on`, hand-maintained, private) makes the judgment stick, and
+  `--dismiss ATS:TOKEN --reason TEXT` appends to it. A dismissal is a board —
+  an ats *and* a token — so the same slug on another ATS is not hidden. A
+  `--dismiss` batch with any malformed spec writes nothing, and a dismissed
+  list that can't be applied is reported on stdout rather than treated as
+  empty, because quietly ignoring it would just make rejected boards
+  reappear with no hint why.
 - **`data/known_good.csv` is the hand-kept recall log.** The pipeline can
   measure precision from what `digest` publishes, but it has no record of roles
   it never saw — recall is only observable from outside, so it gets tracked by
@@ -284,8 +293,9 @@ other).
   angel-funded company appears on none of them and never enters the universe at
   all; and `fetch_ats` covers only Greenhouse, Ashby and Lever, so a company on
   Workable (or any fourth ATS) 404s and is skipped as "not on this ATS".
-- **`signals/`, `data/companies.csv`, `data/known_good.csv` and
-  `data/company_candidates.csv` are private**, gitignored *and* in
+- **`signals/`, `data/companies.csv`, `data/known_good.csv`,
+  `data/company_candidates.csv` and `data/company_candidates_dismissed.csv`
+  are private**, gitignored *and* in
   `hygiene.NEVER_COMMIT` so `git add -f` can't sneak them back. This is a
   public repo and each names specific companies — being watched, being applied
   to, or being considered. The stages still run and still write their files
@@ -412,7 +422,8 @@ The scheduled job commits from this same working copy, so leaving the repo off
 Hygiene rules live in `scripts/hygiene.py` alone, shared by `.githooks/` and CI
 so the two can't drift: no files over 2MB, no generated or private output
 (`data/runs/`, `logs/`, `data/raw/`, `signals/`, `data/companies.csv`,
-`data/known_good.csv`, `data/company_candidates.csv`), no
+`data/known_good.csv`, `data/company_candidates.csv`,
+`data/company_candidates_dismissed.csv`), no
 conflict markers, branch names must match
 `(feat|fix|chore|docs|test|refactor|ci)/slug`, and only digest commits should
 land on `main` directly.
