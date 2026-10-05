@@ -8,6 +8,23 @@ from . import paths
 
 ATS_CHOICES = {"greenhouse", "ashby", "lever"}
 
+# Why the first-TPM lane produced no companies, which is not the same question
+# as why it produced no matches. load_companies returns [] for a missing file
+# as readily as for an empty one, so a fresh clone ran the lane over zero
+# companies and published "No matches this week" - indistinguishable from an
+# honest quiet week, and from a week where every board token 404'd. Each of
+# those needs a different fix, so each gets a different name.
+ABSENT = "absent"        # no data/companies.csv at all - the lane cannot run
+EMPTY = "empty"          # the file is there but carries no data rows
+POPULATED = "populated"  # rows to fetch; whether they yield anything is fetch_ats's answer
+
+
+def list_state(path=None) -> str:
+    path = path or paths.companies_csv_path()
+    if not path.exists():
+        return ABSENT
+    return POPULATED if load_companies(path) else EMPTY
+
 
 def load_companies(path=None) -> list:
     path = path or paths.companies_csv_path()

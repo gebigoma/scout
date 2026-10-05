@@ -43,6 +43,31 @@ class LoadCompaniesTest(PipelineTestCase):
         self.assertEqual(len(companies.load_companies()), 3)
 
 
+class ListStateTest(PipelineTestCase):
+    """load_companies returns [] for a missing file as readily as for an empty
+    one, so a clone with no list ran the first_tpm lane over zero companies
+    and published the same "No matches this week" as an honest quiet week.
+    Each cause needs a different fix, so each gets a different name."""
+
+    def _path(self):
+        return self.project_dir / "companies.csv"
+
+    def test_a_missing_file_is_absent(self):
+        self.assertEqual(companies.list_state(self._path()), companies.ABSENT)
+
+    def test_a_header_only_file_is_empty_not_absent(self):
+        self._path().write_text("name,ats,token,headcount,source\n")
+        self.assertEqual(companies.list_state(self._path()), companies.EMPTY)
+
+    def test_a_file_with_rows_is_populated(self):
+        self._path().write_text(fixtures.COMPANIES_CSV_SAMPLE)
+        self.assertEqual(companies.list_state(self._path()), companies.POPULATED)
+
+    def test_the_three_states_are_distinct(self):
+        self.assertEqual(
+            len({companies.ABSENT, companies.EMPTY, companies.POPULATED}), 3)
+
+
 class CompaniesExampleTest(unittest.TestCase):
     """The committed template is the only description of this schema a fresh
     clone gets, since the real companies.csv is private. Load it with the real

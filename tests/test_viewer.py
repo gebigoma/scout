@@ -39,6 +39,58 @@ class ViewerTest(PipelineTestCase):
         text = content if isinstance(content, str) else json.dumps(content)
         (d / "manifest.json").write_text(text)
 
+    def test_worked_time_sums_stage_durations(self):
+        run = {"started_at": "2026-08-31T16:00:00+00:00",
+               "finished_at": "2026-08-31T16:30:00+00:00",
+               "stages": {"fetch": {"duration_s": 5.0},
+                          "classify": {"duration_s": 235.5}}}
+        self.assertEqual(viewer._worked_s(run), 240.5)
+
+    def test_worked_time_is_missing_not_zero_when_no_stage_reports_one(self):
+        run = {"stages": {"fetch": {"status": "success"}}}
+        self.assertIsNone(viewer._worked_s(run))
+
+    def test_a_resumed_run_is_flagged_rather_than_read_as_a_slow_one(self):
+        """2026-08-31 started 08-31 and finished 09-03 after a checkpoint
+        resume: 4787m of wall clock over ~65m of work. Checkpointing is this
+        pipeline's control flow, so resuming is the normal path, and a column
+        that reports only wall clock misleads on exactly the runs worth
+        reading."""
+        run = {"started_at": "2026-08-31T16:06:17+00:00",
+               "finished_at": "2026-09-03T23:53:51+00:00",
+               "stages": {"fetch_ats": {"duration_s": 3636.5},
+                          "classify": {"duration_s": 235.3}}}
+        self.assertTrue(viewer._resumed(run))
+        self.assertGreater(viewer._duration_s(run), viewer._worked_s(run) * 10)
+
+    def test_a_single_sitting_run_is_not_flagged_as_resumed(self):
+        run = {"started_at": "2026-10-05T16:00:05+00:00",
+               "finished_at": "2026-10-05T16:10:39+00:00",
+               "stages": {"fetch": {"duration_s": 600.0}}}
+        self.assertFalse(viewer._resumed(run))
+
+    def test_a_missing_company_list_is_surfaced(self):
+        """An empty digest cannot distinguish "no company list" from a quiet
+        week; this column is where that difference becomes visible."""
+        run = {"stages": {"fetch_ats": {"company_list_state": "absent"}}}
+        self.assertEqual(viewer._company_list_cell(run), "absent")
+
+    def test_a_list_that_reached_no_ats_is_surfaced(self):
+        run = {"stages": {"fetch_ats": {"company_list_state": "populated",
+                                         "yielded_nothing": True}}}
+        self.assertEqual(viewer._company_list_cell(run), "yielded nothing")
+
+    def test_a_healthy_company_list_shows_nothing(self):
+        run = {"stages": {"fetch_ats": {"company_list_state": "populated",
+                                         "yielded_nothing": False}}}
+        self.assertEqual(viewer._company_list_cell(run), "")
+
+    def test_a_manifest_predating_the_field_is_not_flagged(self):
+        """The eight retained runs have no company_list_state, and absence of
+        the signal is not the signal."""
+        run = {"stages": {"fetch_ats": {"status": "success"}}}
+        self.assertEqual(viewer._company_list_cell(run), "")
+
     def setUp(self):
         super().setUp()
         self._write("2026-09-07", _manifest("2026-09-07", role_terms_seen=37,

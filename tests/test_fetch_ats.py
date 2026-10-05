@@ -134,6 +134,44 @@ class FetchAtsRunTest(PipelineTestCase):
         self.assertEqual(entry["status"], "success")
         self.assertEqual(entry["company_count"], 0)
 
+    def _run_with_state(self, company_list, state, fetch_return=None):
+        with mock.patch.object(companies, "list_state", return_value=state), \
+             mock.patch.object(fetch_ats, "_fetch_company_raw",
+                               return_value=fetch_return):
+            return self._run_with_companies(company_list)
+
+    def test_no_company_list_is_named_in_the_manifest(self):
+        """Three different ways this lane ends up with nothing, all of which
+        used to publish the identical "No matches this week": there is no
+        list, the list reaches no supported ATS, or the week was quiet. Only
+        the last is honest, and each needs a different fix."""
+        self._run_with_state([], companies.ABSENT)
+        entry = manifest.load(RUN_DATE)["stages"]["fetch_ats"]
+        self.assertEqual(entry["company_list_state"], companies.ABSENT)
+        self.assertFalse(entry["yielded_nothing"])
+
+    def test_an_empty_list_is_distinguished_from_a_missing_one(self):
+        self._run_with_state([], companies.EMPTY)
+        entry = manifest.load(RUN_DATE)["stages"]["fetch_ats"]
+        self.assertEqual(entry["company_list_state"], companies.EMPTY)
+
+    def test_a_populated_list_that_yields_nothing_says_so(self):
+        """Every token 404ing is not an outage and must stay a success - but
+        it is also not a quiet week, and the manifest now tells them apart."""
+        self._run_with_state([GREENHOUSE_CO, ASHBY_CO], companies.POPULATED)
+        entry = manifest.load(RUN_DATE)["stages"]["fetch_ats"]
+        self.assertEqual(entry["status"], "success")
+        self.assertEqual(entry["company_list_state"], companies.POPULATED)
+        self.assertTrue(entry["yielded_nothing"])
+        self.assertEqual(entry["succeeded"], 0)
+
+    def test_a_populated_list_that_fetches_is_not_flagged(self):
+        self._run_with_state([GREENHOUSE_CO], companies.POPULATED,
+                              fetch_return=[fixtures.GREENHOUSE_JOB])
+        entry = manifest.load(RUN_DATE)["stages"]["fetch_ats"]
+        self.assertEqual(entry["company_list_state"], companies.POPULATED)
+        self.assertFalse(entry["yielded_nothing"])
+
 
 if __name__ == "__main__":
     unittest.main()
