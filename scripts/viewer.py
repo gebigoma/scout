@@ -18,7 +18,6 @@ A digest that cannot be parsed is likewise a visibly skipped entry.
 """
 import html
 import json
-import sys
 from datetime import datetime
 
 import digest_archive
@@ -284,14 +283,33 @@ def _summary_row(d):
     date = html.escape(d["date"])
     link = '<a href="#d-%s">%s</a>' % (date, date)
     if d["error"]:
-        return ('<tr><td class="txt">%s</td><td class="txt skipped" colspan="5">'
+        return ('<tr><td class="txt">%s</td><td class="txt skipped" colspan="6">'
                 'skipped: unparseable digest</td></tr>' % link)
     matches = digest_archive.match_entries(d)
     scores = [e["score"] for e in matches if e["score"] is not None]
     reviewed = MISSING if d["reviewed"] is None else str(d["reviewed"])
-    return ("<tr><td class=\"txt\">%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>"
+    skipped = len(d["skipped"])
+    skipped_cell = '<td class="skipped">%d</td>' % skipped if skipped else "<td>0</td>"
+    return ("<tr><td class=\"txt\">%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td>%s</tr>"
             % (link, reviewed, len(matches), len(digest_archive.rejected_entries(d)),
-               max(scores) if scores else MISSING, _mean(scores)))
+               max(scores) if scores else MISSING, _mean(scores), skipped_cell))
+
+
+def _skipped_html(d):
+    """A visible note for entries the parser could not read: a dropped entry
+    must never be invisible."""
+    if not d["skipped"]:
+        return ""
+    items = "".join(
+        "<li>%s: <code>%s</code> (%s)</li>" % (html.escape(k["section"]),
+                                               html.escape(k["excerpt"]),
+                                               html.escape(k["reason"]))
+        for k in d["skipped"])
+    return ('<div class="skipped"><strong>%d entr%s in this digest could not be '
+            'parsed and %s not shown below.</strong> The rest of the week is '
+            'unaffected; see matches/%s.md.<ul>%s</ul></div>'
+            % (len(d["skipped"]), "y" if len(d["skipped"]) == 1 else "ies",
+               "is" if len(d["skipped"]) == 1 else "are", html.escape(d["date"]), items))
 
 
 def _week_html(d):
@@ -304,8 +322,9 @@ def _week_html(d):
     if d["reviewed"] is not None:
         reviewed = " &mdash; %d listings reviewed" % d["reviewed"]
     src = '<p class="src">%s</p>' % html.escape(d["sources"]) if d["sources"] else ""
-    return '<h2 id="d-%s">%s%s</h2>%s%s' % (
-        date, date, reviewed, src, "".join(_section_html(s) for s in d["sections"]))
+    return '<h2 id="d-%s">%s%s</h2>%s%s%s' % (
+        date, date, reviewed, src, _skipped_html(d),
+        "".join(_section_html(s) for s in d["sections"]))
 
 
 def render_digests(digests):
@@ -314,7 +333,7 @@ def render_digests(digests):
     else:
         rows = "".join(_summary_row(d) for d in digests)
         body = """<table>
-<thead><tr><th>week</th><th>reviewed</th><th>matches</th><th>rejected</th><th>best fit</th><th>mean fit</th></tr></thead>
+<thead><tr><th>week</th><th>reviewed</th><th>matches</th><th>rejected</th><th>best fit</th><th>mean fit</th><th>unparsed</th></tr></thead>
 <tbody>%s</tbody>
 </table>
 %s""" % (rows, "".join(_week_html(d) for d in digests))
@@ -335,8 +354,8 @@ def main():
     out.write_text(render(collect_runs()))
     digests_out = paths.viewer_digests_path()
     digests_out.write_text(render_digests(digest_archive.collect_digests()))
-    print(out)  # stdout stays the one index path; callers read it
-    print(digests_out, file=sys.stderr)
+    print(out)
+    print(digests_out)
     return 0
 
 

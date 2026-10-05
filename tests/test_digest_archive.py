@@ -184,17 +184,53 @@ class DigestArchiveTest(PipelineTestCase):
     def test_garbage_and_truncated_files_are_skipped_not_fatal(self):
         self._write("2026-09-01", "this is not a digest\n")
         self._write("2026-09-02", "# Matches — 2026-09-02\n\n## Fractional Roles\n")
-        self._write("2026-09-03", "# Matches — 2026-09-03\n\n## Role\n\n"
-                    "- **Cut off** — Co (fit: 50/100)\n")
         self._write("2026-09-04", "")
         (paths.matches_dir() / "2026-09-05.md").write_bytes(b"\xff\xfe\x00bad")
         by = self._by_date()
-        for date in ("2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05"):
+        for date in ("2026-09-01", "2026-09-02", "2026-09-04", "2026-09-05"):
             self.assertTrue(by[date]["error"], date)
             self.assertEqual(by[date]["sections"], [], date)
         self.assertIsNone(by["2026-10-05"]["error"])  # neighbours unaffected
         page = viewer.render_digests(digest_archive.collect_digests())
         self.assertIn("Skipped: matches/2026-09-01.md", page)
+
+    def test_bad_bullet_is_skipped_alone_and_recorded(self):
+        self._write("2026-09-10", "# Matches — 2026-09-10\n\n## Role\n\n"
+                    "- **Good one** — Co A (fit: 60/100)\n  https://example.com/a\n  why a\n\n"
+                    "- **No url** — Co B (fit: 50/100)\n  not a url, just prose\n\n"
+                    "- this line has no bold title and no dash\n  https://example.com/c\n\n"
+                    "- **Good two** — Co D (fit: 40/100)\n  https://example.com/d\n  why d\n"
+                    "- **Cut off** — Co E (fit: 30/100)\n")
+        d = self._by_date()["2026-09-10"]
+        self.assertIsNone(d["error"])
+        self.assertEqual([e["title"] for e in d["sections"][0]["entries"]],
+                         ["Good one", "Good two"])
+        self.assertEqual(len(d["skipped"]), 3)
+        self.assertEqual({k["section"] for k in d["skipped"]}, {"Role"})
+        self.assertIn("**No url**", d["skipped"][0]["excerpt"])
+        self.assertIn("**Cut off**", d["skipped"][2]["excerpt"])
+        self.assertTrue(all(k["reason"] for k in d["skipped"]))
+        page = viewer.render_digests(digest_archive.collect_digests())
+        self.assertIn("3 entries in this digest could not be parsed", page)
+        self.assertIn('<td class="skipped">3</td>', page)
+        self.assertIn("Good two", page)  # the week itself is still shown
+        self.assertEqual(self._by_date()["2026-10-05"]["skipped"], [])
+
+    def test_long_bad_bullet_excerpt_keeps_both_ends(self):
+        long_line = "- **" + "x" * 300 + "** — END-MARKER"
+        self._write("2026-09-11", "# Matches — 2026-09-11\n\n## Role\n\n" + long_line + "\n")
+        (k,) = self._by_date()["2026-09-11"]["skipped"]
+        self.assertLessEqual(len(k["excerpt"]), 170)
+        self.assertTrue(k["excerpt"].endswith("END-MARKER"))
+        self.assertTrue(k["excerpt"].startswith("- **xxx"))
+        self.assertNotIn("\n", k["excerpt"])
+
+    def test_skip_excerpt_is_escaped(self):
+        self._write("2026-09-12", "# Matches — 2026-09-12\n\n## Role\n\n"
+                    "- **<script>x</script>** — Co (fit: 50/100)\n")
+        page = viewer.render_digests(digest_archive.collect_digests())
+        self.assertNotIn("<script>", page)
+        self.assertIn("&lt;script&gt;x", page)
 
     def test_missing_matches_dir_is_empty_and_not_created(self):
         import shutil
@@ -228,12 +264,12 @@ class DigestPageTest(PipelineTestCase):
         page = self._page("# Matches — 2026-10-05\n\n## Role\n\n"
                           "- **T** — C (fit: 70/100)\n  javascript:alert(1)\n  why\n")
         self.assertNotIn('href="javascript:', page)
-        self.assertIn("Skipped: matches/2026-10-05.md", page)  # malformed, not rendered
+        self.assertIn("1 entry in this digest could not be parsed", page)  # skipped, not linked
 
     def test_summary_counts_and_rejected_marking(self):
         page = self._page(CURRENT)
         self.assertIn('<a href="#d-2026-10-05">2026-10-05</a>', page)
-        self.assertIn("<td>351</td><td>2</td><td>1</td><td>68</td><td>52</td>", page)
+        self.assertIn("<td>351</td><td>2</td><td>1</td><td>68</td><td>52</td><td>0</td>", page)
         self.assertIn('<div class="entry rejected">', page)
         self.assertIn('<span class="tag">REJECTED</span>', page)
         self.assertIn('<span class="score low"', page)

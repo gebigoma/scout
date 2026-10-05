@@ -4,7 +4,10 @@
 Pure parsing, no rendering and no HTML: scripts/viewer.py renders what this
 returns. Read-only - it only reads matches/, and (like the manifest handling in
 viewer.py) a digest it cannot parse becomes a skipped entry carrying an `error`
-string, never an exception, so one bad week cannot hide the other ten.
+string, never an exception, so one bad week cannot hide the other ten. Failure
+is wholesale only at file level (no heading, bad UTF-8, empty); a malformed
+bullet is skipped on its own and recorded under `skipped`, so the rest of its
+week still parses and the loss is visible.
 
 Two structural generations exist and both are handled:
 
@@ -23,7 +26,7 @@ Bullet anatomy (both generations):
 """
 import re
 
-from pipeline import paths
+from pipeline import paths, textutil
 
 REJECTED_HEADING = "rejected on scoring"
 NO_MATCHES = "no matches this week"
@@ -64,39 +67,60 @@ def _parse_bullet_line(line):
             "score": score, "via": via, "rationale": ""}
 
 
+def _excerpt(line):
+    """Short, single-line identification of an offending line. elide_middle
+    keeps both ends: which end of a mangled line carries the problem is not
+    predictable."""
+    return textutil.elide_middle(line.strip(), 160).replace("\n", " ")
+
+
+def _parse_bullet_block(block):
+    """block = the bullet line plus its indented lines -> entry dict, or
+    DigestError."""
+    entry = _parse_bullet_line(block[0])
+    if len(block) < 2:
+        raise DigestError("entry has no URL line")
+    url = block[1].strip()
+    if not _URL.match(url):
+        raise DigestError("expected a URL on line 2, got %r" % url[:60])
+    entry["url"] = url
+    entry["rationale"] = " ".join(l.strip() for l in block[2:])
+    return entry
+
+
 def _parse_section_body(lines):
-    """-> (entries, prose_lines) for the lines under one heading."""
-    entries, prose, current, rationale = [], [], None, []
+    """-> (entries, prose_lines, skipped) for the lines under one heading.
+
+    Failure is per bullet, not per file: a bullet that cannot be parsed is
+    recorded in `skipped` (never silently dropped) and the rest of the section
+    parses normally. This is the opposite of classify's _validate_verdicts,
+    on purpose - there a partly accepted chunk hides a dropped listing; here
+    a week that vanished because of one odd bullet would look like a quiet
+    week, which is the ambiguity this archive exists to remove."""
+    entries, prose, skipped, block = [], [], [], None
 
     def close():
-        nonlocal current, rationale
-        if current is not None:
-            if current["url"] is None:
-                raise DigestError("entry %r has no URL" % current["title"][:60])
-            current["rationale"] = " ".join(rationale)
-            entries.append(current)
-        current, rationale = None, []
+        nonlocal block
+        if block is not None:
+            try:
+                entries.append(_parse_bullet_block(block))
+            except DigestError as exc:
+                skipped.append({"excerpt": _excerpt(block[0]), "reason": str(exc)})
+        block = None
 
     for line in lines:
         if line.startswith("- "):
             close()
-            current = _parse_bullet_line(line)
+            block = [line]
         elif not line.strip():
             continue
-        elif line[0] in " \t" and current is not None:
-            text = line.strip()
-            if current["url"] is None:
-                if not _URL.match(text):
-                    raise DigestError("entry %r: expected a URL, got %r"
-                                      % (current["title"][:60], text[:60]))
-                current["url"] = text
-            else:
-                rationale.append(text)
+        elif line[0] in " \t" and block is not None:
+            block.append(line)
         else:
             close()
             prose.append(line.strip())
     close()
-    return entries, prose
+    return entries, prose, skipped
 
 
 def _split_blocks(lines):
@@ -136,9 +160,9 @@ def parse_digest(date, text):
             continue
         if level == 2:
             lane = None  # legacy / top-level section: no lane
-        entries, prose = _parse_section_body(body)
+        entries, prose, skipped = _parse_section_body(body)
         prose_text = " ".join(prose)
-        if not entries and not prose_text:
+        if not entries and not prose_text and not skipped:
             raise DigestError("section %r is empty - truncated?" % name)
         no_matches = prose_text.lower().startswith(NO_MATCHES)
         note = ""
@@ -153,12 +177,15 @@ def parse_digest(date, text):
             "no_matches_note": note,
             "intro": prose_text,
             "entries": entries,
+            "skipped": skipped,
         })
     return {
         "date": date,
         "sources": preamble,
         "reviewed": int(reviewed.group(1).replace(",", "")) if reviewed else None,
         "sections": sections,
+        "skipped": [dict(k, section=sec["role"]) for sec in sections
+                    for k in sec["skipped"]],
         "error": None,
     }
 
@@ -176,7 +203,7 @@ def collect_digests():
                 digests.append(parse_digest(date, path.read_text(encoding="utf-8")))
             except (OSError, ValueError) as exc:  # DigestError and bad UTF-8 are ValueErrors
                 digests.append({"date": date, "sources": "", "reviewed": None,
-                                "sections": [], "error": str(exc) or type(exc).__name__})
+                                "sections": [], "skipped": [], "error": str(exc) or type(exc).__name__})
     digests.sort(key=lambda d: d["date"], reverse=True)
     return digests
 
