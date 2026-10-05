@@ -42,6 +42,20 @@ LANES = {
 SCORE_FLOOR = 35
 
 
+def active_categories(lane: str) -> dict:
+    """A lane's categories minus any paused role. Paused entries stay in LANES
+    so the label survives for the preamble and for re-enabling."""
+    return {category: label
+            for category, label in LANES[lane]["categories"].items()
+            if not lanes.is_paused(category)}
+
+
+def paused_categories(lane: str) -> dict:
+    return {category: label
+            for category, label in LANES[lane]["categories"].items()
+            if lanes.is_paused(category)}
+
+
 def _render_markdown(run_date: str, candidate_count: int,
                      scored: list, rejected: list, active_lanes: list = None) -> str:
     active_lanes = active_lanes if active_lanes is not None else [lanes.FRACTIONAL]
@@ -56,11 +70,25 @@ def _render_markdown(run_date: str, candidate_count: int,
     )
     lines.append("")
 
+    # The criteria files are linked above and still describe every role,
+    # including paused ones. Without this line a reader would take the
+    # criteria at face value and read a paused role's absence as a quiet
+    # week for it, which is the one thing this digest is supposed never to
+    # be ambiguous about.
+    paused_labels = [label for lane in active_lanes
+                     for label in paused_categories(lane).values()]
+    if paused_labels:
+        lines.append(
+            f"Paused: {', '.join(paused_labels)} — criteria retained, not "
+            f"matched this run."
+        )
+        lines.append("")
+
     for lane in active_lanes:
         lane_info = LANES[lane]
         lines.append(f"## {lane_info['label']}")
         lines.append("")
-        for category, label in lane_info["categories"].items():
+        for category, label in active_categories(lane).items():
             lines.append(f"### {label}")
             lines.append("")
             category_matches = sorted(

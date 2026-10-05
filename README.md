@@ -13,7 +13,9 @@ Two lanes:
   VC-portfolio companies' applicant-tracking-system endpoints.
 - **fractional** — senior Technical Program Management, Agentic AI Engineer,
   and similar roles, explicitly fractional/contract/part-time/interim, from
-  public job boards.
+  public job boards. Agentic AI Engineer is currently **paused** — its
+  criteria and code are intact and it publishes nothing; see
+  `lanes.PAUSED_CATEGORIES`.
 
 Both lanes run by default every week; see [Lanes](#lanes) below to run just
 one.

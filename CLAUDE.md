@@ -91,6 +91,25 @@ other).
   makes `--force` idempotent. Matches scoring below `digest.SCORE_FLOOR` (35) go
   to a "Rejected on scoring" section and are deliberately *not* recorded as
   seen, so they stay eligible if re-posted.
+- **A paused role is gated in `classify`, not in the prompt or at render
+  time.** `lanes.PAUSED_CATEGORIES` holds role categories that are switched
+  off without deleting anything; `agentic_ai_engineer` is paused as of
+  2026-10-05, and re-enabling it is removing that one entry. The gate sits
+  where `classify` assembles `matches`, which is what keeps a paused role out
+  of `score`, `digest` *and* `data/seen.json` — gating at render time instead
+  would still have recorded those urls as seen, silently burning the backlog
+  a pause is supposed to preserve. It is deliberately not a prompt change:
+  `ROLE_CRITERIA.md` is interpolated into the classify prompt whole and still
+  describes the paused role, so the model may still return its category and a
+  deterministic Python drop is the only gate it cannot argue with. Removing
+  the category from `classify.SCHEMA`'s enum would be worse than useless — the
+  model would either mislabel those listings as `senior_tpm`, contaminating
+  the active role, or emit a value the schema rejects, and
+  `_validate_verdicts` fails a malformed chunk *wholesale*. The manifest
+  records `paused_dropped` and `paused_categories` so a role dropped by
+  configuration and a genuinely empty week don't produce the same green run,
+  and the digest preamble names the paused role because the criteria file it
+  links to still describes it.
 - **One run at a time**, via `flock` on `logs/run.lock`. A second run exits 0
   with a message — it is not a failure and must not alert like one.
 - **`retention.sweep` counts runs, not days** (`RETAIN_RUNS` = 8), and runs only

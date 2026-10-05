@@ -18,7 +18,7 @@ import json
 import os
 import subprocess
 
-from . import llm, logging_setup, manifest, paths, retry
+from . import lanes, llm, logging_setup, manifest, paths, retry
 
 CHUNK_SIZE = int(os.environ.get("SCOUT_CLASSIFY_CHUNK_SIZE", "50"))
 
@@ -208,26 +208,39 @@ def run(run_date: str, dedupe_checkpoint: dict) -> dict:
                                chunk_count=len(lane_chunks), attempts=total_attempts)
         raise RuntimeError("classify stage: all chunks failed")
 
+    matched = [v for v in all_verdicts if v["verdict"] == "match"]
+    # A paused role is dropped here rather than at render time, so nothing
+    # paused reaches score, digest, or data/seen.json - see
+    # lanes.PAUSED_CATEGORIES for why the gate is Python and not prompt text.
+    paused = [v for v in matched if lanes.is_paused(v.get("role_category"))]
     matches = [
         {"id": v["id"], "url": id_to_listing[v["id"]]["url"],
          "role_category": v["role_category"], "reason": v["reason"],
          "listing": id_to_listing[v["id"]]}
-        for v in all_verdicts if v["verdict"] == "match"
+        for v in matched if not lanes.is_paused(v.get("role_category"))
     ]
+    for v in paused:
+        logging_setup.log(logger, "classify", "paused role dropped",
+                           url=id_to_listing[v["id"]]["url"],
+                           role_category=v.get("role_category", ""))
 
     checkpoint = {
         "matches": matches,
         "failed_chunk_indices": failed_chunk_indices,
         "unclassified_count": unclassified_count,
+        "paused_dropped": len(paused),
     }
     paths.atomic_write_json(paths.checkpoint_path(run_date, "classify"), checkpoint)
 
     logging_setup.log(logger, "classify", "classified listings",
                        candidates=len(listings), matches=len(matches),
                        chunk_count=len(lane_chunks), failed_chunk_indices=failed_chunk_indices,
-                       unclassified_count=unclassified_count, attempts=total_attempts)
+                       unclassified_count=unclassified_count, attempts=total_attempts,
+                       paused_dropped=len(paused))
     manifest.stage_succeeded(run_date, "classify",
                               candidates=len(listings), matches=len(matches),
                               chunk_count=len(lane_chunks), failed_chunk_indices=failed_chunk_indices,
-                              unclassified_count=unclassified_count, attempts=total_attempts)
+                              unclassified_count=unclassified_count, attempts=total_attempts,
+                              paused_dropped=len(paused),
+                              paused_categories=sorted(lanes.PAUSED_CATEGORIES))
     return checkpoint
