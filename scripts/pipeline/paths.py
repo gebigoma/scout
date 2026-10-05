@@ -26,8 +26,15 @@ def atomic_write_jsonl(path: Path, rows) -> None:
     os.replace(tmp, path)
 
 
+def runs_dir() -> Path:
+    """The parent of every run directory. Deliberately does NOT mkdir, unlike
+    run_dir: a read-only consumer (the viewer) listing runs must never create
+    data/runs/ as a side effect."""
+    return PROJECT_DIR / "data" / "runs"
+
+
 def run_dir(run_date: str) -> Path:
-    d = PROJECT_DIR / "data" / "runs" / run_date
+    d = runs_dir() / run_date
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -90,3 +97,13 @@ def companies_csv_path() -> Path:
 
 def prompts_dir() -> Path:
     return Path(__file__).resolve().parent / "prompts"
+
+
+def viewer_dir() -> Path:
+    d = PROJECT_DIR / "viewer"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def viewer_index_path() -> Path:
+    return viewer_dir() / "index.html"
