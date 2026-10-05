@@ -1,0 +1,70 @@
+{
+ "status": "success",
+ "company": {
+  "name": "Vandelay",
+  "ats": "greenhouse",
+  "token": "vandelay"
+ },
+ "jobs": [
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/vandelay/jobs/9000000004",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": true
+    }
+   ],
+   "internal_job_id": 9000000001,
+   "location": {
+    "name": "Australia (Remote)"
+   },
+   "metadata": [
+    {
+     "id": 9000000002,
+     "name": "Work Location",
+     "value": "United States (Remote)",
+     "value_type": "single_select"
+    },
+    {
+     "id": 90000000003,
+     "name": "Pipeline",
+     "value": false,
+     "value_type": "yes_no"
+    }
+   ],
+   "id": 9000000004,
+   "updated_at": "2026-07-27T15:53:38-04:00",
+   "requisition_id": "735",
+   "title": "Technical Program Manager (TPM) ",
+   "company_name": "Vandelay",
+   "first_published": "2026-06-17T19:00:42-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;&lt;strong&gt;About the Company&lt;/strong&gt;&lt;/p&gt;\n&lt;div class=&quot;x_x_Paragraph x_x_SCXW000000000 x_x_BCX0&quot;&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;none&quot;&gt;Vandelay builds modular compute infrastructure&amp;nbsp;for edge sites, from the&amp;nbsp;first deployment to full production,&amp;nbsp;for customers who cannot depend&amp;nbsp;on a central cloud. Our&amp;nbsp;systems operate in many countries&amp;nbsp;for organizations in energy, defense&amp;nbsp;and beyond, and we are&amp;nbsp;backed by institutional investors and&amp;nbsp;strategic technology partners. At Vandelay&amp;nbsp;you will take ownership, work&amp;nbsp;with autonomy, and deliver results&amp;nbsp;on problems nobody has solved&amp;nbsp;yet.&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335557856&amp;quot;:16777215,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;/div&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;ATS_htmlPreview&quot;&gt;\n&lt;div&gt;&amp;nbsp;&lt;/div&gt;\n&lt;div&gt;&lt;strong&gt;About the role&lt;/strong&gt;&lt;/div&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;We are looking for a&amp;nbsp;Technical Program Manager (TPM) with&amp;nbsp;a background in the IT&amp;nbsp;industry, ideally with time at&amp;nbsp;large hardware or infrastructure vendors,&amp;nbsp;or working closely with them.&amp;nbsp;You should know hardware well&amp;nbsp;and understand how data center&amp;nbsp;builds come together across engineering,&amp;nbsp;construction, operations and IT.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;You will bring together IT,&amp;nbsp;construction, engineering, operations and commercial&amp;nbsp;staff, adding clarity and pace&amp;nbsp;to tightly coupled technical workstreams,&amp;nbsp;acting as the link between&amp;nbsp;disciplines and keeping everyone clear&amp;nbsp;on their part.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;The job mixes strategy and&amp;nbsp;hands-on work. You will put&amp;nbsp;scalable processes in place, and&amp;nbsp;you will also be willing&amp;nbsp;to establish basic workflows by&amp;nbsp;hand before tooling exists.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Location: this role is remote.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;div&gt;&lt;strong&gt;What You&amp;#39;ll Do&lt;/strong&gt;&lt;/div&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Run programs that cut across&amp;nbsp;hardware, infrastructure, IT systems and&amp;nbsp;readiness for operations.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Align teams on objectives, dependencies,&amp;nbsp;timelines and resources.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Write the plan, the success&amp;nbsp;measures and the execution approach&amp;nbsp;for each complex workstream.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Build repeatable systems, balancing long-term&amp;nbsp;quality with short-term pragmatism.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Identify risks, drive mitigation and&amp;nbsp;escalate critical issues on time.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Make sure every team understands&amp;nbsp;its responsibilities and the program&amp;#39;s&amp;nbsp;direction.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Translate technical detail for different&amp;nbsp;audiences.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Coordinate operational readiness so hardware,&amp;nbsp;infrastructure and IT are ready&amp;nbsp;to deploy.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Report progress, decisions and risks&amp;nbsp;to leadership with data and&amp;nbsp;narrative.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div&gt;&lt;strong&gt;Required Qualifications&lt;/strong&gt;&lt;/div&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Eight or more years of&amp;nbsp;technical program management in IT&amp;nbsp;or with technology vendors.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Hands-on work with hardware: its&amp;nbsp;lifecycle, its suppliers, and the&amp;nbsp;infrastructure that depends on it.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Familiarity with infrastructure builds such&amp;nbsp;as data centers, edge sites&amp;nbsp;or network installations.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;A record of aligning engineering&amp;nbsp;and operations teams.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Comfort bringing structure to ambiguous,&amp;nbsp;fast-moving programs.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Strong communication and stakeholder management.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div&gt;&lt;strong&gt;Preferred Experience&lt;/strong&gt;&lt;/div&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;A background in running data&amp;nbsp;centers, cloud infrastructure or network&amp;nbsp;gear, or in working with&amp;nbsp;OEMs.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Some knowledge of logistics and&amp;nbsp;supply chain.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;A PMP, Agile or Lean&amp;nbsp;certification is welcome but not&amp;nbsp;required.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div&gt;&lt;strong&gt;About You&lt;/strong&gt;&lt;/div&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;You work well with others,&amp;nbsp;bring structure, and act before&amp;nbsp;being asked. You like bringing&amp;nbsp;order to ambiguity, can move&amp;nbsp;between strategy and detail, and&amp;nbsp;build trust across very different&amp;nbsp;groups.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;div&gt;&lt;strong&gt;Compensation&lt;/strong&gt;&lt;/div&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;This role also includes equity&amp;nbsp;and subsidized benefits.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Base salary and equity&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Subsidized medical, dental and vision&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;HSA, FSA and dependent care&amp;nbsp;FSA&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Traditional and Roth retirement plans&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Paid time off without a&amp;nbsp;fixed cap&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Fourteen paid holidays a year&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;#LI-XX1 #000 #LI-Remote&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;/div&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;title&quot;&gt;Compensation&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$160,000 — $200,000 AUD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;strong&gt;You&amp;#39;ll Thrive Here If You Are&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-pattern=&quot;discCircleSquare&quot; data-depth=&quot;1&quot;&gt;\n&lt;li value=&quot;1&quot;&gt;Driven and eager to keep learning.&amp;nbsp;&lt;/li&gt;\n&lt;li value=&quot;2&quot;&gt;A careful, independent problem solver who gets things done.&amp;nbsp;&lt;/li&gt;\n&lt;li value=&quot;3&quot;&gt;Energized by a fast pace and an entrepreneurial team.&amp;nbsp;&lt;/li&gt;\n&lt;li value=&quot;4&quot;&gt;A collaborator who puts team results ahead of personal credit.&amp;nbsp;&lt;/li&gt;\n&lt;li value=&quot;5&quot;&gt;Organized and focused on results.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Equal Opportunity Statement&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Vandelay is an equal opportunity employer and does not discriminate based on any protected characteristic, including race, color, religion, gender, sexual orientation, national origin, pregnancy, disability or genetic information. Hiring decisions are based on qualifications, merit and business need.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Agency Submissions&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-teams=&quot;true&quot;&gt;Vandelay does not accept unsolicited resumes from agencies. Candidates should apply through our careers page, and we will not pay fees for resumes submitted without a signed agreement.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;/div&gt;",
+   "departments": [
+    {
+     "id": 9000000005,
+     "name": "R&D - Edge Hardware",
+     "child_ids": [],
+     "parent_id": 9000000006
+    }
+   ],
+   "offices": [
+    {
+     "id": 9000000007,
+     "name": "Australia (Remote)",
+     "location": null,
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": null
+  }
+ ]
+}

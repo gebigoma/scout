@@ -1,0 +1,57 @@
+{
+ "status": "success",
+ "company": {
+  "name": "Hooli",
+  "ats": "greenhouse",
+  "token": "hooli"
+ },
+ "jobs": [
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/hooli/jobs/9000000002",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": false
+    }
+   ],
+   "internal_job_id": 9000000001,
+   "location": {
+    "name": "Remote (North America)"
+   },
+   "metadata": null,
+   "id": 9000000002,
+   "updated_at": "2026-09-23T12:23:51-04:00",
+   "requisition_id": "525",
+   "title": "Partner Sales Manager",
+   "company_name": "Hooli",
+   "first_published": "2026-06-30T20:00:34-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Hooli&lt;/h2&gt;\n&lt;p&gt;Hooli makes a marketing data platform. Marketing teams use it to plan, launch and measure campaigns on top of their own customer data, with brand guidelines and past performance in the same place, so they can run whole campaigns without waiting on other teams. We are based in the United States and work with large consumer and enterprise brands in retail, travel, media and financial services. We want people who are ambitious and kind, move quickly, and look out for their colleagues and customers.&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;&lt;strong&gt;The Role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;We are hiring an ISV Partner Sales Manager to look after our data platform partners. This job is not program management. It is a sales role. You will work closely with our account executives to create pipeline, co-sell with partner representatives, and open new revenue through partner-sourced deals. You will also run partner enablement, spread the word about our joint value, and help sellers use the ecosystem to speed up and expand deals. The partner program is not a first-year effort: the operating rhythm, partner hub, enablement material and partner network are already in place. What we need now is someone to run it harder, producing more pipeline, closer partner relationships and better co-selling.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You&amp;#39;ll Do&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;&lt;strong&gt;Create Pipeline&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Earn the trust of partner account executives and their managers.&lt;/li&gt;\n&lt;li&gt;Bring qualified introductions to the Hooli sales team through those relationships; this is the main measure of the role.&lt;/li&gt;\n&lt;li&gt;Run joint meetings with Hooli account executives: introductions, deal reviews and joint pitches.&lt;/li&gt;\n&lt;li&gt;Choose priority accounts together with partner field teams and run coordinated outreach.&lt;/li&gt;\n&lt;li&gt;Connect partner field organizations with our account executives.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Be Present in the Field&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Travel to regional events such as partner conferences, summits, user group days and customer dinners; expect two or three heavy travel months a year.&lt;/li&gt;\n&lt;li&gt;Host customer events with partner counterparts to create pipeline.&lt;/li&gt;\n&lt;li&gt;Hold four to five partner syncs and about two joint calls each week.&lt;/li&gt;\n&lt;li&gt;Keep partner sellers and engineers current on our value, recent wins and competitive position.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;What We&amp;#39;re Looking For&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;At least two years selling enterprise B2B software, in sales, alliances or partner roles.&lt;/li&gt;\n&lt;li&gt;Experience selling with the major cloud data platforms or adjacent software vendors, and an understanding of how data and marketing teams buy.&lt;/li&gt;\n&lt;li&gt;A field-first mindset: you prefer meetings, dinners and events to a desk.&lt;/li&gt;\n&lt;li&gt;Good relationship instincts, and the ability to earn trust fast with field teams spread across regions.&lt;/li&gt;\n&lt;li&gt;Commercial sense: you can read a deal and find ways to help our sellers close.&lt;/li&gt;\n&lt;li&gt;Organization and self-direction, with the ability to prioritize hard and create things from scratch.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Pay&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;The base salary range is $90,000 to $100,000 per year (on-target earnings $130,000 to $140,000), the same in every location under our remote-first policy. The role also includes equity.&lt;/p&gt;\n&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;strong&gt;E-Verify&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Hooli uses E-Verify. Once you are hired, we check that you are authorized to work in the US by submitting details from your I-9 form to the Social Security Administration and, if necessary, to Homeland Security. We only do this after hire and never use E-Verify to screen candidates.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;br&gt;&lt;/em&gt;&lt;a href=&quot;https://example.com/link&quot;&gt;&lt;em&gt;E-Verify Notice&lt;/em&gt;&lt;em&gt;&lt;br&gt;&lt;/em&gt;&lt;/a&gt;&lt;a href=&quot;https://example.com/link&quot;&gt;&lt;em&gt;E-Verify Notice (Spanish)&lt;/em&gt;&lt;em&gt;&lt;br&gt;&lt;/em&gt;&lt;/a&gt;&lt;a href=&quot;https://example.com/link&quot;&gt;&lt;em&gt;Right to Work Notice&lt;/em&gt;&lt;em&gt;&lt;br&gt;&lt;/em&gt;&lt;/a&gt;&lt;a href=&quot;https://example.com/link&quot;&gt;&lt;em&gt;Right to Work Notice (Spanish)&lt;/em&gt;&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;",
+   "departments": [
+    {
+     "id": 9000000003,
+     "name": "Partnerships",
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "offices": [
+    {
+     "id": 9000000004,
+     "name": "Remote",
+     "location": null,
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": null
+  }
+ ]
+}
