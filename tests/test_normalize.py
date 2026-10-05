@@ -255,6 +255,29 @@ class NormalizeAtsTest(unittest.TestCase):
         self.assertEqual(listing["title"], "Staff Program Manager, Infrastructure")
         self.assertEqual(listing["url"], fixtures.LEVER_JOB["hostedUrl"])
 
+    def test_lever_reads_its_list_sections_and_closing_in_page_order(self):
+        """Issue #44: `descriptionPlain` is only Lever's opening. The
+        sections in `lists` and the closing in `additionalPlain` are the rest
+        of the ad, and the opening has to stay first - it is the snippet's
+        head."""
+        job = dict(fixtures.LEVER_JOB,
+                   lists=[{"text": "What you'll do",
+                           "content": "<li>Own the roadmap.</li><li>Run reviews.</li>"}],
+                   additionalPlain="We sponsor visas.")
+        listing, = normalize._normalize_ats(self._companies_results("lever", job))
+        text = listing["match_text"]
+        self.assertTrue(text.startswith("Vulnerability scanning"))
+        order = [text.index(s) for s in (
+            "Vulnerability scanning", "What you'll do", "Own the roadmap.",
+            "Run reviews.", "We sponsor visas.")]
+        self.assertEqual(order, sorted(order))
+        self.assertNotIn("<li>", text)
+
+    def test_a_lever_job_without_lists_or_closing_still_normalizes(self):
+        listing, = normalize._normalize_ats(
+            self._companies_results("lever", dict(fixtures.LEVER_JOB, lists=None)))
+        self.assertEqual(listing["match_text"], fixtures.LEVER_JOB["descriptionPlain"])
+
     def test_workable_maps_both_description_fields(self):
         """`description` is the summary blurb and `full_description` the
         body. The foundation evidence this lane turns on lives in the second

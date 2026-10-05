@@ -15,7 +15,7 @@ issue #13 was a bug in what `normalize` hands `prefilter`.
 | `ashby/program_manager_not_tpm` | a program-manager title `ROLE_TERM` must not match |
 | `greenhouse/non_us_tpm` | `location.name` says Australia, a metadata field says US |
 | `ashby/us_and_canada_tpm` | open in US *and* Canada, passes (#46) |
-| `lever/no_role_term` | `country` code, and the `lists` sections normalize ignores (#44) |
+| `lever/no_role_term` | `country` code; the role lives in `lists`, which normalize must read (#44) |
 
 ## Kept from the real payload
 
