@@ -21,3 +21,23 @@ def active_lanes() -> list:
     if unknown:
         raise ValueError(f"unknown lane(s) in SCOUT_LANES: {unknown}")
     return lanes
+
+
+# Role categories paused without deleting their criteria or their code.
+# ROLE_CRITERIA.md still describes a paused role and digest.LANES still carries
+# its label, so re-enabling one is removing its entry from this set.
+#
+# The gate is deterministic and lives in classify (not in the prompt and not in
+# digest's rendering): the criteria file is interpolated into the classify
+# prompt whole, so the model is still told about a paused role and may still
+# return its category. Dropping those verdicts in Python means a pause cannot
+# be argued out of by a model, and it keeps ROLE_CRITERIA.md byte-identical.
+#
+# Nothing paused is scored, published, or recorded in data/seen.json - a
+# listing passed over during a pause stays eligible when the role comes back,
+# the same way a match below digest.SCORE_FLOOR does.
+PAUSED_CATEGORIES = {"agentic_ai_engineer"}
+
+
+def is_paused(category) -> bool:
+    return category in PAUSED_CATEGORIES

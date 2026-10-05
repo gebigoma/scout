@@ -3,7 +3,7 @@ import subprocess
 import unittest
 from unittest import mock
 
-from pipeline import classify, manifest, paths, retry
+from pipeline import classify, lanes, manifest, paths, retry
 
 from . import fixtures
 from .support import RUN_DATE, PipelineTestCase
@@ -166,6 +166,38 @@ class ClassifyRunTest(PipelineTestCase):
                                [{"verdicts": [fixtures.verdict(0, "match")]}])
         match, = checkpoint["matches"]
         self.assertEqual(match["url"], tricky_url)
+
+    def test_a_paused_role_is_dropped_from_matches(self):
+        """The gate is here and not at render time, so a paused match never
+        reaches score, digest, or data/seen.json."""
+        listings = [fixtures.listing("https://x/1", title="Fractional TPM"),
+                    fixtures.listing("https://x/2", title="AI Agent Engineer")]
+        checkpoint = self._run(listings, [{"verdicts": [
+            fixtures.verdict(0, "match", "senior_tpm"),
+            fixtures.verdict(1, "match", "agentic_ai_engineer")]}])
+        self.assertEqual([m["url"] for m in checkpoint["matches"]], ["https://x/1"])
+        self.assertEqual(checkpoint["paused_dropped"], 1)
+
+    def test_a_paused_drop_is_reported_in_the_manifest(self):
+        """A role dropped by configuration and a week that genuinely matched
+        nothing must not produce the same green run."""
+        checkpoint = self._run(
+            [fixtures.listing("https://x/1")],
+            [{"verdicts": [fixtures.verdict(0, "match", "agentic_ai_engineer")]}])
+        self.assertEqual(checkpoint["matches"], [])
+        stage = manifest.load(RUN_DATE)["stages"]["classify"]
+        self.assertEqual(stage["status"], "success")
+        self.assertEqual(stage["paused_dropped"], 1)
+        self.assertEqual(stage["matches"], 0)
+        self.assertIn("agentic_ai_engineer", stage["paused_categories"])
+
+    def test_nothing_is_dropped_when_nothing_is_paused(self):
+        with mock.patch.object(lanes, "PAUSED_CATEGORIES", set()):
+            checkpoint = self._run(
+                [fixtures.listing("https://x/1")],
+                [{"verdicts": [fixtures.verdict(0, "match", "agentic_ai_engineer")]}])
+        self.assertEqual([m["url"] for m in checkpoint["matches"]], ["https://x/1"])
+        self.assertEqual(checkpoint["paused_dropped"], 0)
 
     def test_no_matches_is_a_successful_stage_not_a_failure(self):
         checkpoint = self._run([fixtures.listing("https://x/1")],

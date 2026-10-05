@@ -11,10 +11,14 @@ from .support import RUN_DATE, PipelineTestCase, git, init_repo_with_remote
 
 class RenderMarkdownTest(unittest.TestCase):
     def test_lists_matches_under_their_role_category(self):
-        md = digest._render_markdown(RUN_DATE, 120, [
-            fixtures.scored("u1", 90, "senior_tpm", title="Fractional TPM"),
-            fixtures.scored("u2", 80, "agentic_ai_engineer", title="AI Agent Engineer"),
-        ], [])
+        # Unpaused so the lane has two categories to separate - with
+        # agentic_ai_engineer paused this would pass vacuously, the heading
+        # being absent rather than the match being filed under it.
+        with mock.patch.object(lanes, "PAUSED_CATEGORIES", set()):
+            md = digest._render_markdown(RUN_DATE, 120, [
+                fixtures.scored("u1", 90, "senior_tpm", title="Fractional TPM"),
+                fixtures.scored("u2", 80, "agentic_ai_engineer", title="AI Agent Engineer"),
+            ], [])
         tpm_section = md.split("### Agentic AI Engineer")[0]
         self.assertIn("Fractional TPM", tpm_section)
         self.assertNotIn("AI Agent Engineer", tpm_section)
@@ -37,14 +41,16 @@ class RenderMarkdownTest(unittest.TestCase):
     def test_empty_category_says_so_explicitly(self):
         """A silent missing section reads as a rendering bug; "No matches this
         week" is a claim the pipeline is making on purpose."""
-        md = digest._render_markdown(RUN_DATE, 10, [fixtures.scored("u1", 90)], [])
+        with mock.patch.object(lanes, "PAUSED_CATEGORIES", set()):
+            md = digest._render_markdown(RUN_DATE, 10, [fixtures.scored("u1", 90)], [])
         self.assertEqual(md.count("No matches this week."), 1)
 
-    def test_both_categories_render_when_there_are_no_matches_at_all(self):
+    def test_every_active_category_renders_when_there_are_no_matches_at_all(self):
         md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FRACTIONAL])
-        for label in digest.LANES[lanes.FRACTIONAL]["categories"].values():
+        active = digest.active_categories(lanes.FRACTIONAL)
+        for label in active.values():
             self.assertIn(f"### {label}", md)
-        self.assertEqual(md.count("No matches this week."), 2)
+        self.assertEqual(md.count("No matches this week."), len(active))
 
     def test_a_lane_not_in_active_lanes_renders_no_heading_at_all(self):
         md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FRACTIONAL])
@@ -108,6 +114,36 @@ class RenderMarkdownTest(unittest.TestCase):
         self.assertIn("Disagreement", md)
         # The rejected section must come after the real matches, not mix in.
         self.assertGreater(md.index("Disagreement"), md.index("Real match"))
+
+    def test_a_paused_category_renders_no_heading_at_all(self):
+        """Not even "No matches this week." - a paused role has not been
+        looked for, and saying nothing was found would be a false claim."""
+        md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FRACTIONAL])
+        self.assertNotIn("### Agentic AI Engineer", md)
+        self.assertIn("### Senior Technical Program Management", md)
+
+    def test_the_preamble_names_a_paused_role(self):
+        """The criteria file is linked in the same preamble and still
+        describes the paused role, so its absence has to be stated."""
+        md = digest._render_markdown(RUN_DATE, 10, [], [], active_lanes=[lanes.FRACTIONAL])
+        self.assertIn("Paused: Agentic AI Engineer", md)
+
+    def test_no_paused_line_when_nothing_is_paused(self):
+        with mock.patch.object(lanes, "PAUSED_CATEGORIES", set()):
+            md = digest._render_markdown(RUN_DATE, 10, [], [],
+                                          active_lanes=[lanes.FRACTIONAL])
+        self.assertNotIn("Paused:", md)
+
+    def test_clearing_the_pause_restores_the_category(self):
+        """Pins the one-line re-enable: emptying PAUSED_CATEGORIES is the
+        whole operation, with no other edit needed to publish the role."""
+        with mock.patch.object(lanes, "PAUSED_CATEGORIES", set()):
+            md = digest._render_markdown(RUN_DATE, 10, [
+                fixtures.scored("u1", 80, "agentic_ai_engineer", title="AI Agent Engineer"),
+            ], [], active_lanes=[lanes.FRACTIONAL])
+        self.assertIn("### Agentic AI Engineer", md)
+        self.assertIn("AI Agent Engineer", md)
+        self.assertNotIn("Paused:", md)
 
     def test_ends_with_exactly_one_trailing_newline(self):
         md = digest._render_markdown(RUN_DATE, 10, [fixtures.scored("u1", 90)], [])
