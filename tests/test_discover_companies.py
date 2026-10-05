@@ -146,7 +146,27 @@ class CollectTest(PipelineTestCase):
             _item(1, "Phaselaw | Founding Engineer<p>https://jobs.ashbyhq.com/Pear-VC/abc")])
         rows, _ = self._main()
         self.assertEqual(rows[0]["token"], "Pear-VC")
+        self.assertIn("ats=ashby_portfolio", rows[0]["note"])
+
+    def test_a_non_ashby_board_for_others_is_not_offered_portfolio_mode(self):
+        """Portfolio mode is Ashby-only; suggesting it for a greenhouse
+        consultancy board would be advice that cannot work."""
+        self._write_fetch("2026-09-07", [
+            _item(1, "BCC | Analyst<p>https://job-boards.greenhouse.io/blackcanyonconsulting/jobs/1")])
+        rows, _ = self._main()
         self.assertIn("VC/agency", rows[0]["note"])
+        self.assertNotIn("ashby_portfolio", rows[0]["note"])
+
+    def test_a_board_listed_as_a_portfolio_board_counts_as_listed(self):
+        """HN links Pear's board as jobs.ashbyhq.com/Pear-VC however
+        companies.csv spells its ats; either way it is already listed, not a
+        candidate and not a "moved ATS" warning."""
+        self._write_companies("name,ats,token,source\nPear VC,ashby_portfolio,Pear-VC,pear\n")
+        self._write_fetch("2026-09-07", [
+            _item(1, "Phaselaw | Eng<p>https://jobs.ashbyhq.com/Pear-VC/abc")])
+        rows, out = self._main()
+        self.assertEqual(rows, [])
+        self.assertIn("1 linked board(s) already in companies.csv", out)
 
     def test_vc_inside_a_word_is_not_flagged(self):
         self._write_fetch("2026-09-07", [

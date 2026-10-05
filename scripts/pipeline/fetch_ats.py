@@ -26,13 +26,14 @@ DELAY_BETWEEN_CALLS = float(os.environ.get("SCOUT_ATS_DELAY", "0.3"))
 
 def _url(company: dict) -> str:
     token = company["token"]
-    if company["ats"] == "greenhouse":
+    ats = companies.base_ats(company["ats"])
+    if ats == "greenhouse":
         # ?content=true is load-bearing - the bare list endpoint has no
         # description field at all.
         return f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"
-    if company["ats"] == "ashby":
+    if ats == "ashby":
         return f"https://api.ashbyhq.com/posting-api/job-board/{token}"
-    if company["ats"] == "workable":
+    if ats == "workable":
         # ?details=true is load-bearing the same way greenhouse's
         # ?content=true is: without it each job carries summary fields only,
         # no description or full_description, and prefilter's tier-2
@@ -43,7 +44,12 @@ def _url(company: dict) -> str:
         # directly keeps the per-company call to a single request.
         return (f"https://apply.workable.com/api/v1/widget/accounts/{token}"
                 f"?details=true")
-    return f"https://api.lever.co/v0/postings/{token}?mode=json"
+    if ats == "lever":
+        return f"https://api.lever.co/v0/postings/{token}?mode=json"
+    # Lever used to be the fall-through for any other value, so a typo in the
+    # hand-maintained ats column became a Lever request, a 404, and a quiet
+    # "not on this ATS". run() reports unsupported values before reaching here.
+    raise ValueError(f"unsupported ats {company['ats']!r}")
 
 
 def _http_get(url: str, timeout: int = 15) -> bytes:
@@ -62,7 +68,7 @@ def _fetch_company_raw(company: dict):
             return None
         raise
     data = json.loads(raw)
-    if company["ats"] in ("greenhouse", "ashby", "workable"):
+    if companies.base_ats(company["ats"]) in ("greenhouse", "ashby", "workable"):
         return data.get("jobs", [])
     return data if isinstance(data, list) else []  # lever
 
@@ -75,6 +81,18 @@ def run(run_date: str) -> dict:
     list_state = companies.list_state()
     results = {}
     for company in company_list:
+        if company["ats"] not in companies.ATS_CHOICES:
+            # A typo in the ats column ("ashby-portfolio", "greenhose") is a
+            # fixable data error, not "this company isn't on that ATS" - so
+            # it gets its own status and its own manifest list, and is never
+            # requested at all.
+            results[company["name"]] = {
+                "status": "invalid", "company": company, "attempts": 0, "jobs": [],
+            }
+            logging_setup.log(logger, "fetch_ats", f"{company['name']}: unsupported ats",
+                               company=company["name"], ats=company["ats"],
+                               supported=sorted(companies.ATS_CHOICES))
+            continue
         attempts_made = 0
 
         def attempt(company=company):
@@ -111,12 +129,13 @@ def run(run_date: str) -> dict:
     failed = [n for n, r in results.items() if r["status"] == "failed"]
     skipped = [n for n, r in results.items() if r["status"] == "skipped"]
     succeeded = [n for n, r in results.items() if r["status"] == "success"]
+    invalid = [n for n, r in results.items() if r["status"] == "invalid"]
 
     # A 404 is expected/normal (board tokens are guesswork) and must not
     # count toward "everything is down" - only genuine transport failures
     # do, so a company list with some entries not on a given ATS can't
     # trip a false stage failure.
-    reachable = len(company_list) - len(skipped)
+    reachable = len(company_list) - len(skipped) - len(invalid)
     if company_list and reachable and len(failed) == reachable:
         manifest.stage_failed(run_date, "fetch_ats", "all reachable ATS calls failed",
                                failed_companies=failed)
@@ -135,7 +154,7 @@ def run(run_date: str) -> dict:
     yielded_nothing = bool(company_list) and not succeeded
     logging_setup.log(logger, "fetch_ats", "fetched ATS listings",
                        company_count=len(company_list), succeeded=len(succeeded),
-                       skipped=len(skipped), failed=failed,
+                       skipped=len(skipped), failed=failed, invalid_ats=invalid,
                        company_list_state=list_state, yielded_nothing=yielded_nothing)
     if list_state != companies.POPULATED:
         logging_setup.log(logger, "fetch_ats", "no company list to fetch",
@@ -149,6 +168,7 @@ def run(run_date: str) -> dict:
     manifest.stage_succeeded(run_date, "fetch_ats",
                               company_count=len(company_list), succeeded=len(succeeded),
                               skipped=len(skipped), failed=failed,
+                              invalid_ats=invalid,
                               company_list_state=list_state,
                               yielded_nothing=yielded_nothing)
     return checkpoint

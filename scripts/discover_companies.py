@@ -70,9 +70,11 @@ NOT_A_TOKEN = frozenset({"embed", "j", "api", "v1", "jobs", "careers", "job_boar
 SHORTLINK = re.compile(r"\bgrnh\.se/([A-Za-z0-9]+)")
 
 # A board that hires on someone else's behalf - a VC's portfolio board, a
-# staffing agency, a consultancy. fetch_ats tags every job on a board with the
-# row's company name, so adding one of these labels a whole portfolio's jobs
-# as one company. Real example from the retained runs: a "Phaselaw" comment
+# staffing agency, a consultancy. Added as an ordinary row, every job on it is
+# labelled with the row's company name, so a whole portfolio reads as one
+# company. An Ashby portfolio board has its own mode (ats=ashby_portfolio,
+# which names each job's company from the job); an agency board belongs in
+# no mode at all. Real example from the retained runs: a "Phaselaw" comment
 # linking jobs.ashbyhq.com/Pear-VC, which is Pear VC's portfolio board. A note,
 # not a filter - Black Canyon Consulting is a company with its own board, and
 # a person can tell the two apart where a pattern can't. "vc" needs a
@@ -143,7 +145,10 @@ def _listed():
     second so a token listed under a *different* ATS can be flagged rather
     than silently passed over."""
     rows = companies.load_companies()
-    exact = {(r["ats"], r["token"].lower()) for r in rows}
+    # A portfolio-board row is matched as its base ATS: HN links Pear VC's
+    # board as jobs.ashbyhq.com/Pear-VC whether companies.csv lists it as
+    # ashby or ashby_portfolio, and either way it is already listed.
+    exact = {(companies.base_ats(r["ats"]), r["token"].lower()) for r in rows}
     by_token = {r["token"].lower(): r["ats"] for r in rows}
     return exact, by_token
 
@@ -193,7 +198,12 @@ def collect():
                     # which makes its existing companies.csv row a silent 404.
                     notes.append(f"token already listed under {listed_on} - may have moved ATS")
                 if OTHERS_BOARD.search(token):
-                    notes.append("may be a VC/agency board hiring for others - check before adding")
+                    notes.append(
+                        "may be a VC portfolio board (add with ats=ashby_portfolio) "
+                        "or an agency - check before adding"
+                        if ats == "ashby" else
+                        "may be a VC/agency board hiring for others - check before "
+                        "adding (portfolio boards are supported on Ashby only)")
                 c = candidates[key] = {
                     "name": _clean_name(header_name, token),
                     "ats": ats,

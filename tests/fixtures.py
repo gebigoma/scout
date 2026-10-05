@@ -247,6 +247,27 @@ WORKABLE_JOB_NON_US = dict(
               "country_code": "DE"},
 )
 
+# An Ashby portfolio board: one VC's board, jobs for several companies, each
+# job naming its company in `department` (and repeating it in `team`) - the
+# shape of a real VC talent board on 2026-10-05, with invented names.
+ASHBY_PORTFOLIO_JOBS = [
+    {"id": "p-1", "title": "Founding Engineer - Quill Labs",
+     "jobUrl": "https://jobs.ashbyhq.com/example-ventures/p-1",
+     "publishedAt": "2026-09-30T00:00:00.000Z", "department": "Quill Labs",
+     "team": "Quill Labs", "location": "San Francisco",
+     "descriptionPlain": "Quill Labs is hiring its first engineer."},
+    {"id": "p-2", "title": "Senior Technical Program Manager",
+     "jobUrl": "https://jobs.ashbyhq.com/example-ventures/p-2",
+     "publishedAt": "2026-09-29T00:00:00.000Z", "department": "Larkspur",
+     "team": "Larkspur", "location": "New York City",
+     "descriptionPlain": "Larkspur's first TPM, establishing the function."},
+    {"id": "p-3", "title": "Platform Engineer - Quill Labs",
+     "jobUrl": "https://jobs.ashbyhq.com/example-ventures/p-3",
+     "publishedAt": "2026-09-28T00:00:00.000Z", "department": "Quill Labs",
+     "team": "Quill Labs", "location": "Remote",
+     "descriptionPlain": "Infrastructure at Quill Labs."},
+]
+
 
 def ats_listing(url, **overrides):
     """A normalized first_tpm-lane listing, as normalize._normalize_ats

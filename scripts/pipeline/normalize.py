@@ -4,7 +4,7 @@ import html
 import json
 import re
 
-from . import logging_setup, manifest, paths, prefilter
+from . import companies, logging_setup, manifest, paths, prefilter
 
 
 def _strip_html(text: str) -> str:
@@ -295,16 +295,18 @@ def _normalize_ats(companies_results: dict) -> list:
         if info["status"] != "success":
             continue
         company = info["company"]
+        ats = companies.base_ats(company["ats"])
+        portfolio = companies.is_portfolio_board(company["ats"])
         for job in info["jobs"]:
-            if company["ats"] == "greenhouse":
+            if ats == "greenhouse":
                 title, url = job.get("title", ""), job.get("absolute_url", "")
                 posted = job.get("first_published", "")
                 desc = job.get("content", "")
-            elif company["ats"] == "ashby":
+            elif ats == "ashby":
                 title, url = job.get("title", ""), job.get("jobUrl", "")
                 posted = job.get("publishedAt", "")
                 desc = job.get("descriptionPlain", "")
-            elif company["ats"] == "workable":
+            elif ats == "workable":
                 title = job.get("title", "")
                 url = job.get("url") or job.get("shortlink", "")
                 posted = job.get("published_on") or job.get("created_at", "")
@@ -314,15 +316,26 @@ def _normalize_ats(companies_results: dict) -> list:
                 desc = " ".join(
                     x for x in (job.get("description", ""),
                                 job.get("full_description", "")) if x)
-            else:  # lever
+            elif ats == "lever":
                 title, url = job.get("text", ""), job.get("hostedUrl", "")
                 posted = job.get("createdAt", "")
                 desc = job.get("descriptionPlain", job.get("description", ""))
+            else:
+                # fetch_ats never marks an unsupported ats as a success, so
+                # this is unreachable - but lever was this branch's silent
+                # default once, and a wrong job shape is worse than none.
+                continue
             clean = _one_line(_strip_html(desc))
             result.append({
+                # The row's own ats, so a portfolio-board listing stays
+                # recognisable as one ("ashby_portfolio:Pear-VC") downstream.
                 "source": f"{company['ats']}:{company['token']}",
                 "title": _one_line(title),
-                "company": company["name"],
+                # On a portfolio board each job names its own company; the
+                # row's name is the VC's, and would put a whole portfolio's
+                # jobs under one company.
+                "company": (companies.portfolio_company(job, company["name"])
+                            if portfolio else company["name"]),
                 "url": url,
                 "posted_date": str(posted),
                 "snippet": _extract_snippet(clean, terms=FIRST_TPM_TERMS),
@@ -332,7 +345,7 @@ def _normalize_ats(companies_results: dict) -> list:
                 "match_text": clean,
                 "tags": [],
                 "lane": "first_tpm",
-                **_ats_location(company["ats"], job),
+                **_ats_location(ats, job),
             })
     return result
 

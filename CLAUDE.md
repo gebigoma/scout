@@ -217,6 +217,36 @@ other).
   `country_code`, but only a single unambiguous code is treated as
   authoritative: a posting open in several countries would otherwise be
   dropped on one of its locations.
+- **`ats=ashby_portfolio` is a VC's board: one fetch, many companies.** A
+  portfolio board is a single Ashby board carrying jobs for a whole portfolio
+  — Pear VC's held 99 jobs across 44 companies on 2026-10-05, each naming its
+  company in Ashby's `department` field (`team` repeats it). As an ordinary
+  `ashby` row every one of those jobs would be published under the row's name,
+  a portfolio as one company. `companies.PORTFOLIO_BOARDS` maps the mode to its
+  base ATS, so it fetches exactly like Ashby; `normalize` names each listing
+  from `companies.portfolio_company` (department, then team, then the board's
+  own name) and keeps `ashby_portfolio:<token>` in `source`; `company_signals`
+  splits the board back into its companies before scoring, because a hiring
+  concentration over a whole portfolio describes no company — and blanks
+  `department` on those reqs, since there it names the company, not a team, so
+  an eng verdict comes from the title alone; `corpus` maps a portfolio
+  listing back to its VC by `source`, the name join having nothing to match.
+  Verified against Pear's live payload, not just fixtures: 99 listings, 44
+  companies, none labelled as the VC, no empty fields. Ashby only, because
+  it's the only portfolio board whose per-job company field has been checked.
+- **An unsupported `ats` value is reported, not sent to Lever.** Lever used to
+  be the fall-through branch in `fetch_ats`, `normalize` and `company_signals`
+  alike, so a typo in the hand-typed `ats` column ("ashby-portfolio",
+  "greenhose") became a Lever request, a 404 and a quiet "not on this ATS" —
+  indistinguishable from a normal skip. `fetch_ats` now gives such a row the
+  status `invalid`, never requests it, lists it as `invalid_ats` in the
+  manifest, and excludes it from the "all reachable calls failed" count, since
+  a data error is not an outage. Each per-ATS branch names Lever explicitly
+  and raises on anything else. Related, and found while adding this: Workable
+  reached `fetch_ats` and `normalize` in #42 but not `company_signals`, so a
+  Workable job fell into the Lever branch there and came out with Lever's
+  field names read off Workable's payload — empty title, empty URL. No
+  Workable row existed yet, which is the only reason it never fired.
 - **The Workable response shape is from documentation, not a live call.**
   The endpoint form was confirmed (the documented URL's 302 target), and the
   field names come from Workable's published API docs, but no live account

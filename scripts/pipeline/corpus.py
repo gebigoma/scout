@@ -195,9 +195,17 @@ def _portfolio_map() -> dict:
     the corpus write (companies.load_companies already returns [] for a
     missing file; the try/except here is for anything stranger)."""
     try:
-        return {c["name"]: (c.get("source") or None) for c in companies.load_companies()}
+        rows = companies.load_companies()
     except Exception:
         return {}
+    mapping = {c["name"]: (c.get("source") or None) for c in rows}
+    # A portfolio-board listing is named after its portfolio company, which
+    # has no row of its own - the row is the VC's board. Key those by the
+    # listing's `source` ("ashby_portfolio:Pear-VC") so they still map to the
+    # board's portfolio rather than to nothing.
+    mapping.update({f"{c['ats']}:{c['token']}": (c.get("source") or None)
+                    for c in rows if companies.is_portfolio_board(c["ats"])})
+    return mapping
 
 
 def build_rows(run_date: str, normalize_cp: dict, prefilter_cp: dict,
@@ -246,7 +254,8 @@ def build_rows(run_date: str, normalize_cp: dict, prefilter_cp: dict,
             "description_source": "match_text" if "match_text" in listing else "snippet",
             "source": source,
             "ats": _split_ats(source),
-            "portfolio": portfolio_by_name.get(listing.get("company", "")),
+            "portfolio": (portfolio_by_name.get(listing.get("company", ""))
+                          or portfolio_by_name.get(source)),
         }
 
         pf = prefilter.evaluate(listing)
