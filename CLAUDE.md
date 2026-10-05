@@ -495,6 +495,21 @@ No network: LLM stages run against a stubbed CLI, the six sources against
 captured response shapes, and `digest`'s commit/push path against a throwaway
 repo with a local bare remote (`init_repo_with_remote`).
 
+**The suite ignores any inherited git location.** `tests/__init__.py` strips
+`GIT_DIR`, `GIT_WORK_TREE` and the other variables that tell git which
+repository to act on, because they override the `cwd` every test helper
+passes. On 2026-10-05 a session ran the suite from a linked worktree with
+them set, and `support.init_repo_with_remote` acted on the *real* repo: it
+re-initialised it as bare (so every git command, including the scheduled
+digest's, failed with "must be run in a work tree"), rewrote `user.name` /
+`user.email` to `scout tests <test@example.com>` — the identity lived only in
+the repo's local config, so the next digest would have been published under
+the test fixture — and committed `initial` and `a` onto that worktree's
+branch. Config is shared across linked worktrees, so one worktree's test run
+broke every checkout of the repo. `tests/test_isolation.py` replays it in a
+child process against a throwaway repo; it fails without the guard with
+`'scout tests' != 'Real Owner'`.
+
 The suite deliberately pins behaviours that were previously bugs — snippet
 extraction, first-seen-date keying, the score floor, the scoped commit, pushing
 a commit stranded by a failed push. Treat a failure in those as a real
