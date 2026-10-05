@@ -34,7 +34,8 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 NEVER_COMMIT = ("data/raw/", "data/runs/", "logs/", "__pycache__/",
                 ".DS_Store", ".claude/settings.local.json", "Claude.dmg",
                 "signals/", "data/companies.csv", "data/known_good.csv",
-                "data/corpus/", "data/company_candidates.csv")
+                "data/corpus/", "data/company_candidates.csv",
+                "data/company_candidates_dismissed.csv")
 
 # `worktree-agent-abbbb31faaf724ad2` and friends became PR titles. Require a
 # type prefix and a human-readable slug instead.

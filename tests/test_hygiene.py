@@ -142,7 +142,8 @@ class MainPushTest(unittest.TestCase):
         """Each names specific companies being watched or applied to, in a
         public repo. gitignore alone would let `git add -f` through."""
         private = ["signals/2026-08-17.md", "data/companies.csv",
-                   "data/known_good.csv", "data/company_candidates.csv"]
+                   "data/known_good.csv", "data/company_candidates.csv",
+                   "data/company_candidates_dismissed.csv"]
         self.assertEqual(len(hygiene.check_never_commit(private)), len(private))
 
     def test_other_hand_maintained_data_is_still_committable(self):

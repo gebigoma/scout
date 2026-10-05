@@ -3,6 +3,7 @@
 the pipeline has already fetched, and write them to a review queue.
 
     python3 scripts/discover_companies.py
+    python3 scripts/discover_companies.py --dismiss greenhouse:acmeconsulting --reason agency
 
 Why HN, and why this works when name-based discovery doesn't: an ATS board
 token is the hard part of adding a company (CLAUDE.md: "board tokens are
@@ -30,12 +31,14 @@ The leading columns are companies.csv's own (name, ats, token, source) so any
 other discovery source - EDGAR Form D, a resolved short link - can write rows
 to the same queue later without a format change.
 """
+import argparse
 import collections
 import csv
 import io
 import json
 import re
 import sys
+from datetime import date
 
 from pipeline import companies, normalize, paths
 
@@ -113,6 +116,82 @@ def _clean_token(raw: str) -> str:
     return token
 
 
+# The ats values a candidate can carry - the four this script extracts from
+# HN links, so the four a dismissal can name.
+CANDIDATE_ATS = ("ashby", "greenhouse", "lever", "workable")
+DISMISSED_COLUMNS = ("ats", "token", "reason", "dismissed_on")
+
+
+def load_dismissed():
+    """{(ats, token_lower)} a person has rejected, plus a list of problems.
+
+    The queue is regenerated wholesale, so without this a board judged and
+    rejected - an agency, a wrong-stage company - comes back on every run and
+    has to be judged again. Hand-maintained like companies.csv. A file that
+    can't be read is reported, not silently treated as empty: a quietly
+    ignored dismissed list would just make rejected boards reappear with no
+    hint why."""
+    path = paths.company_candidates_dismissed_path()
+    if not path.exists():
+        return set(), []
+    try:
+        with path.open(newline="") as f:
+            reader = csv.DictReader(f)
+            missing = {"ats", "token"} - set(reader.fieldnames or ())
+            if missing:
+                return set(), [f"{path.name} has no {'/'.join(sorted(missing))} column "
+                               f"- nothing in it was applied"]
+            rows = list(reader)
+    except (OSError, UnicodeDecodeError, csv.Error) as e:
+        return set(), [f"{path.name} could not be read ({e}) - nothing in it was applied"]
+    dismissed, problems = set(), []
+    for n, row in enumerate(rows, start=2):
+        ats = (row.get("ats") or "").strip().lower()
+        token = (row.get("token") or "").strip()
+        if ats in CANDIDATE_ATS and token:
+            dismissed.add((ats, token.lower()))
+        elif ats or token:
+            problems.append(f"{path.name} line {n}: unrecognised ats {ats!r} or empty token "
+                            f"- skipped")
+    return dismissed, problems
+
+
+def parse_board(spec: str):
+    """"greenhouse:acmeconsulting" -> ("greenhouse", "acmeconsulting"), the
+    same ats:token pair the queue's own columns give, or None."""
+    ats, sep, token = (spec or "").partition(":")
+    ats, token = ats.strip().lower(), token.strip()
+    if not sep or ats not in CANDIDATE_ATS or not token:
+        return None
+    return ats, token
+
+
+def dismiss(boards: list, reason: str = "") -> list:
+    """Append boards to the dismissed list, skipping ones already on it.
+    Returns the boards actually added."""
+    path = paths.company_candidates_dismissed_path()
+    already, _ = load_dismissed()
+    added = []
+    for ats, token in boards:
+        if (ats, token.lower()) in already:
+            continue
+        already.add((ats, token.lower()))
+        added.append((ats, token))
+    if not added:
+        return added
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_header = not path.exists() or path.stat().st_size == 0
+    with path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=DISMISSED_COLUMNS, lineterminator="\n")
+        if write_header:
+            writer.writeheader()
+        today = date.today().isoformat()
+        for ats, token in added:
+            writer.writerow({"ats": ats, "token": token, "reason": reason,
+                             "dismissed_on": today})
+    return added
+
+
 def extract_tokens(text: str) -> list:
     """(ats, token) pairs linked from one comment, in order, deduplicated."""
     found = []
@@ -155,6 +234,8 @@ def _listed():
 
 def collect():
     exact, by_token = _listed()
+    dismissed, dismissed_problems = load_dismissed()
+    dismissed_hits = set()
     candidates = {}
     comment_ids = set()
     runs = set()
@@ -188,6 +269,9 @@ def collect():
             key = (ats, token.lower())
             if key in exact:
                 already_listed.add(key)
+                continue
+            if key in dismissed:
+                dismissed_hits.add(key)
                 continue
             c = candidates.get(key)
             if c is None:
@@ -226,6 +310,8 @@ def collect():
         "runs": sorted(runs),
         "comments": len(comment_ids),
         "already_listed": len(already_listed),
+        "dismissed": len(dismissed_hits),
+        "dismissed_problems": dismissed_problems,
         "unresolved_shortlinks": len(shortlinks),
         "company_list_state": companies.list_state(),
     }
@@ -240,7 +326,38 @@ def render_csv(candidates: list) -> str:
     return out.getvalue()
 
 
+def _parse_args(argv):
+    parser = argparse.ArgumentParser(
+        description="Mine companies.csv candidates from HN into a review queue.")
+    parser.add_argument(
+        "--dismiss", action="append", default=[], metavar="ATS:TOKEN",
+        help="reject a board so the queue stops offering it, e.g. "
+             "greenhouse:acmeconsulting - the queue's own ats and token columns "
+             "(repeatable)")
+    parser.add_argument("--reason", default="",
+                        help="why, recorded beside each --dismiss (e.g. agency)")
+    return parser.parse_args(argv)
+
+
 def main(argv=None) -> int:
+    args = _parse_args(argv)
+    if args.dismiss:
+        boards = [parse_board(spec) for spec in args.dismiss]
+        bad = [spec for spec, b in zip(args.dismiss, boards) if b is None]
+        if bad:
+            # Nothing is written if any spec is wrong - a half-applied batch
+            # leaves the list in a state nobody asked for.
+            print(f"Not a board: {', '.join(bad)}. Use ATS:TOKEN, where ATS is one "
+                  f"of {', '.join(CANDIDATE_ATS)} - the queue's ats and token "
+                  f"columns.", file=sys.stderr)
+            return 2
+        added = dismiss(boards, args.reason)
+        skipped = len(boards) - len(added)
+        for ats, token in added:
+            print(f"Dismissed {ats}:{token}" + (f" ({args.reason})" if args.reason else ""))
+        if skipped:
+            print(f"{skipped} board(s) were already dismissed.")
+
     result = collect()
     path = paths.company_candidates_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -254,6 +371,11 @@ def main(argv=None) -> int:
     for ats in sorted(by_ats):
         print(f"  {ats:<11} {by_ats[ats]:>3} candidate(s)")
     print(f"  {'total':<11} {len(result['candidates']):>3}")
+    if result["dismissed"]:
+        print(f"{result['dismissed']} dismissed board(s) left out "
+              f"({paths.company_candidates_dismissed_path().name}).")
+    for problem in result["dismissed_problems"]:
+        print(f"Warning: {problem}")
     if result["company_list_state"] == companies.POPULATED:
         print(f"{result['already_listed']} linked board(s) already in companies.csv, left out.")
     else:

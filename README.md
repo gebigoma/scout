@@ -162,7 +162,10 @@ links to their own Ashby, Greenhouse, Lever and Workable boards — the board
 token is in the URL, which is the part that's otherwise guesswork. It makes no
 network calls and never touches `companies.csv`: it writes a review queue to
 `data/company_candidates.csv` (gitignored, like the list itself), and rows get
-moved across by hand.
+moved across by hand. To stop the queue offering a board you've rejected —
+an agency, say — `python3 scripts/discover_companies.py --dismiss
+greenhouse:<token> --reason agency` records it in
+`data/company_candidates_dismissed.csv` (also gitignored).
 
 It's hand-maintained and **gitignored**, along with the `signals/` watchlist
 `company_signals` writes and `data/known_good.csv` — these name specific

@@ -252,5 +252,112 @@ class CollectTest(PipelineTestCase):
         self.assertIn("companies.csv is absent", out)
 
 
+
+class DismissedTest(PipelineTestCase):
+    """The queue is regenerated wholesale, so a board judged and rejected came
+    back on every run. The dismissed list makes a judgment stick."""
+
+    def _write_fetch(self, items):
+        paths.checkpoint_path("2026-09-07", "fetch").write_text(json.dumps(
+            {"sources": {"hn_whoishiring": {"status": "success", "items": items}}}))
+
+    def _write_dismissed(self, text):
+        path = paths.company_candidates_dismissed_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+        return path
+
+    def _run(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out, \
+             contextlib.redirect_stderr(io.StringIO()) as err:
+            code = dc.main(list(argv))
+        rows = []
+        if paths.company_candidates_path().exists():
+            with paths.company_candidates_path().open(newline="") as f:
+                rows = list(csv.DictReader(f))
+        return code, rows, out.getvalue(), err.getvalue()
+
+    BCC = _item(1, "BCC | Analyst<p>https://job-boards.greenhouse.io/blackcanyon/jobs/1")
+    ACME = _item(2, "Acme | TPM<p>https://jobs.ashbyhq.com/acme/1")
+
+    def test_a_dismissed_board_is_left_out_and_counted(self):
+        self._write_dismissed("ats,token,reason,dismissed_on\n"
+                              "greenhouse,blackcanyon,agency,2026-10-05\n")
+        self._write_fetch([self.BCC, self.ACME])
+        _, rows, out, _ = self._run()
+        self.assertEqual([r["token"] for r in rows], ["acme"])
+        self.assertIn("1 dismissed board(s) left out", out)
+
+    def test_dismissal_matches_tokens_case_insensitively(self):
+        self._write_dismissed("ats,token\ngreenhouse,BlackCanyon\n")
+        self._write_fetch([self.BCC])
+        _, rows, _, _ = self._run()
+        self.assertEqual(rows, [])
+
+    def test_dismissing_on_one_ats_does_not_hide_another(self):
+        """A board is an ats and a token; the same slug on a different ATS
+        is a different board, and may be a different company."""
+        self._write_dismissed("ats,token\nlever,acme\n")
+        self._write_fetch([self.ACME])
+        _, rows, _, _ = self._run()
+        self.assertEqual([(r["ats"], r["token"]) for r in rows], [("ashby", "acme")])
+
+    def test_the_flag_records_the_dismissal_and_applies_it_in_the_same_run(self):
+        self._write_fetch([self.BCC, self.ACME])
+        code, rows, out, _ = self._run("--dismiss", "greenhouse:blackcanyon",
+                                       "--reason", "agency")
+        self.assertEqual(code, 0)
+        self.assertEqual([r["token"] for r in rows], ["acme"])
+        self.assertIn("Dismissed greenhouse:blackcanyon (agency)", out)
+        with paths.company_candidates_dismissed_path().open(newline="") as f:
+            row, = list(csv.DictReader(f))
+        self.assertEqual((row["ats"], row["token"], row["reason"]),
+                         ("greenhouse", "blackcanyon", "agency"))
+        self.assertRegex(row["dismissed_on"], r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_dismissing_the_same_board_twice_writes_it_once(self):
+        self._write_fetch([self.BCC])
+        self._run("--dismiss", "greenhouse:blackcanyon")
+        _, _, out, _ = self._run("--dismiss", "greenhouse:BlackCanyon")
+        self.assertIn("1 board(s) were already dismissed", out)
+        lines = paths.company_candidates_dismissed_path().read_text().splitlines()
+        self.assertEqual(len(lines), 2)  # header + one row
+
+    def test_a_malformed_dismissal_writes_nothing(self):
+        """All or nothing - a batch with one typo is not half-applied."""
+        self._write_fetch([self.BCC])
+        code, _, _, err = self._run("--dismiss", "greenhouse:blackcanyon",
+                                    "--dismiss", "greenhose:acme")
+        self.assertEqual(code, 2)
+        self.assertIn("greenhose:acme", err)
+        self.assertFalse(paths.company_candidates_dismissed_path().exists())
+
+    def test_an_unusable_dismissed_list_is_reported_not_silently_ignored(self):
+        """Ignored quietly, every rejected board would reappear with no hint
+        why - the file has to say it wasn't applied."""
+        self._write_dismissed("board,why\ngreenhouse:blackcanyon,agency\n")
+        self._write_fetch([self.BCC])
+        _, rows, out, _ = self._run()
+        self.assertEqual(len(rows), 1)
+        self.assertIn("Warning:", out)
+        self.assertIn("nothing in it was applied", out)
+
+    def test_one_bad_row_is_skipped_with_a_warning_and_the_rest_applied(self):
+        self._write_dismissed("ats,token\ngreenhose,acme\ngreenhouse,blackcanyon\n")
+        self._write_fetch([self.BCC, self.ACME])
+        _, rows, out, _ = self._run()
+        self.assertEqual([r["token"] for r in rows], ["acme"])
+        self.assertIn("line 2: unrecognised ats 'greenhose'", out)
+
+    def test_dismissing_never_writes_companies_csv(self):
+        path = paths.companies_csv_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("name,ats,token,source\nAcme,ashby,acme,x\n")
+        before = path.read_bytes()
+        self._write_fetch([self.BCC])
+        self._run("--dismiss", "greenhouse:blackcanyon", "--reason", "agency")
+        self.assertEqual(path.read_bytes(), before)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -14,6 +14,8 @@ data/known_good.csv
 # Candidate rows for companies.csv mined by scripts/discover_companies.py -
 # names companies just as companies.csv does, so it is private the same way.
 data/company_candidates.csv
+# Boards reviewed and rejected from that queue - names companies too.
+data/company_candidates_dismissed.csv
 notes/
 # Third-party job-posting text captured for the first_tpm eval corpus (spec
 # 01) - not this repo's to publish, and never pruned by retention.sweep.
