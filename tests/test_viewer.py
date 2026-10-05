@@ -107,7 +107,8 @@ class ViewerTest(PipelineTestCase):
     def test_main_writes_index_under_temp_project(self):
         with contextlib.redirect_stdout(io.StringIO()) as out_:
             self.assertEqual(viewer.main(), 0)
-        self.assertEqual(out_.getvalue().strip(), str(paths.viewer_index_path()))
+        self.assertEqual(out_.getvalue().split(),
+                         [str(paths.viewer_index_path()), str(paths.viewer_digests_path())])
         out = paths.viewer_index_path()
         self.assertEqual(out, self.project_dir / "viewer" / "index.html")
         self.assertIn("<title>", out.read_text())
