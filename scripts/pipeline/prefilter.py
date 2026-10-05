@@ -156,8 +156,26 @@ def evaluate(listing: dict) -> dict:
     tier1 = any(p in text for p in TIER1_PHRASES)
     tier2 = any(abs(r.start() - f.start()) <= PROXIMITY_WINDOW
                for r in role_hits for f in foundation_hits)
+    # Tier 3: the *title* names the role, whatever the body says about
+    # foundation. Tiers 1 and 2 both require foundation vocabulary, and over
+    # the eval corpus that dropped 12 of the 14 listings whose title said
+    # "Technical Program Manager" or "TPM" - Chainguard, Deepgram, Cribl,
+    # Together AI, Sardine, Anyscale - every one of them a TPM opening at a
+    # VC-portfolio AI-infra company, which is this lane's entire target
+    # profile. The two that survived (Supabase, Baseten) are the only two
+    # first_tpm matches ever published, and both happened to say "first" or
+    # "Founding" in the ad. Most companies don't say it.
+    #
+    # Whether such a role is actually foundational is a judgment about
+    # evidence, which belongs to classify and ROLE_CRITERIA_FIRST_TPM.md -
+    # this stage's docstring says "loose, classify confirms", and a gate that
+    # dropped 12 of 14 on-profile titles was not loose. Title matching is
+    # narrow enough to afford: ROLE_TERM needs "technical program manager",
+    # "program management" or a word-boundary "tpm", so "Capacity Manager,
+    # Programs" and "Recruiting Operations Program Manager" do not qualify.
+    tier3 = bool(ROLE_TERM.search(_normalize(listing.get("title", ""))))
 
-    role_fit = tier1 or tier2
+    role_fit = tier1 or tier2 or tier3
     # A role term was present and we dropped it anyway - the cost of the
     # filter is otherwise invisible.
     #
@@ -173,8 +191,8 @@ def evaluate(listing: dict) -> dict:
     near_miss = bool(role_hits) and not role_fit
     us_eligible = _is_us_eligible(listing)
     return {"passes": role_fit and us_eligible, "tier1": tier1, "tier2": tier2,
-            "near_miss": near_miss, "role_fit": role_fit, "us_eligible": us_eligible,
-            "role_term": bool(role_hits)}
+            "tier3": tier3, "near_miss": near_miss, "role_fit": role_fit,
+            "us_eligible": us_eligible, "role_term": bool(role_hits)}
 
 
 def run(run_date: str, normalize_checkpoint: dict) -> dict:
@@ -193,6 +211,10 @@ def run(run_date: str, normalize_checkpoint: dict) -> dict:
     # after the fact previously took reading the checkpoints by hand.
     role_terms_seen = 0
     first_tpm_seen = 0
+    # Admitted on title alone, with no foundation evidence in the text. These
+    # are the candidates ROLE_CRITERIA_FIRST_TPM.md judges as unconfirmed
+    # rather than as matches, so the count is worth separating from the rest.
+    title_only = 0
     for listing in listings:
         if listing.get("lane") != "first_tpm":
             passed.append(listing)
@@ -201,6 +223,8 @@ def run(run_date: str, normalize_checkpoint: dict) -> dict:
         result = evaluate(listing)
         role_terms_seen += result["role_term"]
         if result["passes"]:
+            if result["tier3"] and not (result["tier1"] or result["tier2"]):
+                title_only += 1
             # `match_text` is a whole job description and this is the last
             # stage that needs it; carrying it into dedupe/classify would
             # bloat those checkpoints for no reader.
@@ -226,7 +250,7 @@ def run(run_date: str, normalize_checkpoint: dict) -> dict:
 
     counts = dict(passed=len(passed), filtered=filtered, near_misses=near_misses,
                   filtered_non_us=filtered_non_us, role_terms_seen=role_terms_seen,
-                  first_tpm_seen=first_tpm_seen)
+                  first_tpm_seen=first_tpm_seen, title_only=title_only)
     logging_setup.log(logger, "prefilter", "prefiltered listings", **counts)
     manifest.stage_succeeded(run_date, "prefilter", **counts)
     return checkpoint

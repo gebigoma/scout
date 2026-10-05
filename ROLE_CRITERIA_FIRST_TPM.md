@@ -55,6 +55,47 @@ Also genuine (implicit but unambiguous):
   section saying the company was "built from scratch" is not evidence about
   this role.
 
+## A second verdict: unconfirmed
+
+A listing that is **clearly a senior technical program management role at a
+target-profile company** but whose posting says nothing either way about
+whether the function already exists is `tpm_unconfirmed`, not a match and not
+a rejection.
+
+This tier exists because of what the evidence rule above costs. Over the eval
+corpus, 14 listings had "Technical Program Manager" or "TPM" in the title;
+twelve were dropped before classify ever saw them, and the two that survived
+— Supabase and Baseten — are the only first-TPM matches ever published, both
+because their ads happened to say "first" or "Founding". The twelve were TPM
+openings at Chainguard, Deepgram, Cribl, Together AI, Sardine, Anyscale and
+Baseten: this lane's exact target profile, invisible because of how the ad was
+worded rather than what the job was.
+
+Use `tpm_unconfirmed` when **all** of these hold:
+
+- Role fit is clear: the title or body describes technical program management
+  work at senior scope.
+- The posting gives no foundation evidence of the kind listed above — it
+  neither claims the role is new nor indicates an existing TPM org.
+- Nothing in the "Not a match" list applies.
+
+**Everything in "Not a match" still rejects.** An existing TPM org, a
+non-technical program/project role, a Product Manager req, junior scope, or
+Trusted Platform Module is `no_match` — not unconfirmed. Unconfirmed is for
+*absent* evidence, never for *contrary* evidence. A posting that says "join
+our team of TPMs" has answered the question; it is not unconfirmed, it is a
+rejection.
+
+Do not use `tpm_unconfirmed` to hedge a listing that would otherwise be a
+match. If the foundation evidence is there, it is a match — say so and quote
+it. The two verdicts are distinguished by what the posting contains, not by
+how confident you feel.
+
+Score `tpm_unconfirmed` listings on role fit and company profile alone, and
+say plainly in the rationale that foundation status is unstated. They are
+published in their own section, so the reader already knows the evidence is
+missing; the rationale's job is to say whether the *role* is worth a look.
+
 ## A specific false positive to reject
 
 **"TPM" also means Trusted Platform Module.** Infrastructure, security, and
@@ -82,6 +123,14 @@ rather than disqualifying the listing.
 - **0-34** — Shouldn't appear. A low score here means the score stage
   disagreed with classify; treat it as a signal to check classify's judgment,
   not as a listing to pursue.
+
+An `tpm_unconfirmed` listing is scored on the same scale, for role fit and
+company profile only. Missing foundation evidence is what defines the tier, so
+do **not** also penalise the score for it — that would push every unconfirmed
+listing under the floor and into "Rejected on scoring", which is a different
+claim (the pipeline disagreeing with itself) and would quietly empty the
+section this tier exists to fill. A clean senior TPM req at a target-profile
+company belongs in the 60-84 band on role fit alone.
 
 State the company's headcount in the rationale when known, and say "size
 unknown" when it isn't — never guess it.

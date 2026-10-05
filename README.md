@@ -10,7 +10,11 @@ Two lanes:
 
 - **first_tpm** — full-time roles where the hire would be the first (or
   near-first) Technical Program Manager at a startup, sourced directly from
-  VC-portfolio companies' applicant-tracking-system endpoints.
+  VC-portfolio companies' applicant-tracking-system endpoints. Published in
+  two sections: roles whose posting carries explicit foundation evidence, and
+  senior TPM roles at target-profile companies whose posting says nothing
+  either way (`tpm_unconfirmed`) — separated rather than merged, so the
+  evidenced section keeps meaning what it says.
 - **fractional** — senior Technical Program Management, Agentic AI Engineer,
   and similar roles, explicitly fractional/contract/part-time/interim, from
   public job boards. Agentic AI Engineer is currently **paused** — its

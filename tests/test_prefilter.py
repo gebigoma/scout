@@ -32,6 +32,54 @@ class EvaluateTest(unittest.TestCase):
         self.assertTrue(result["passes"])
         self.assertTrue(result["tier2"])
 
+    def test_a_role_term_in_the_title_passes_without_foundation_evidence(self):
+        """Tier 3. Tiers 1 and 2 both require foundation vocabulary, and over
+        the eval corpus that dropped 12 of the 14 listings whose title said
+        "Technical Program Manager" or "TPM" - TPM openings at Chainguard,
+        Deepgram, Cribl, Together AI, Sardine and Anyscale, this lane's exact
+        target profile, invisible because of ad wording rather than the job.
+        Whether such a role is foundational is classify's judgment to make."""
+        result = prefilter.evaluate(_first_tpm_listing(
+            "Own cross-functional delivery across engineering and product.",
+            title="Senior Technical Program Manager"))
+        self.assertTrue(result["passes"])
+        self.assertTrue(result["tier3"])
+        self.assertFalse(result["tier1"])
+        self.assertFalse(result["tier2"])
+
+    def test_tpm_in_a_title_passes_on_the_acronym_too(self):
+        result = prefilter.evaluate(_first_tpm_listing(
+            "Drive programs end to end.", title="Sr. Technical Program Manager (TPM)"))
+        self.assertTrue(result["tier3"])
+
+    def test_a_program_manager_title_that_is_not_a_tpm_does_not_pass(self):
+        """ROLE_TERM needs "technical program manager", "program management"
+        or a word-boundary "tpm" - title matching is only affordable because
+        it is this narrow. These are real corpus titles."""
+        for title in ("Recruiting Operations Program Manager",
+                      "Capacity Manager, Programs",
+                      "Senior Partner Manager - Technology Partnerships"):
+            with self.subTest(title=title):
+                result = prefilter.evaluate(_first_tpm_listing(
+                    "Run programs for the business.", title=title))
+                self.assertFalse(result["tier3"])
+                self.assertFalse(result["passes"])
+
+    def test_a_trusted_platform_module_title_does_not_pass_on_tier3(self):
+        """"TPM" is Trusted Platform Module across this lane's infra and
+        security sources; word-boundary matching is what keeps tier 3 from
+        admitting every attestation posting."""
+        result = prefilter.evaluate(_first_tpm_listing(
+            "Firmware for vTPM attestation.", title="Engineer, vTPM Firmware"))
+        self.assertFalse(result["tier3"])
+
+    def test_tier3_still_obeys_the_us_eligibility_gate(self):
+        result = prefilter.evaluate(_first_tpm_listing(
+            "Own delivery across engineering.",
+            title="Technical Program Manager", location_text="Australia (Remote)"))
+        self.assertTrue(result["tier3"])
+        self.assertFalse(result["passes"])
+
     def test_a_role_term_with_no_foundation_term_anywhere_is_a_near_miss(self):
         """Near-miss means a role term was present and dropped anyway - weak
         evidence worth logging, not a silent drop."""

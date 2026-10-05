@@ -31,6 +31,11 @@ LANES = {
         "criteria": "ROLE_CRITERIA_FIRST_TPM.md",
         "categories": {
             "first_tpm": "First Technical Program Manager",
+            # Role fit is clear, foundation status isn't stated either way.
+            # Its own section on purpose: mixing unconfirmed listings in with
+            # evidenced ones would make the evidenced section's claim weaker
+            # without telling the reader it had changed.
+            "tpm_unconfirmed": "TPM role — foundation status unstated",
         },
     },
 }
