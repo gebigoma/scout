@@ -34,7 +34,8 @@ SCHEMA = {
                     "verdict": {"type": "string", "enum": ["match", "no_match"]},
                     "role_category": {
                         "type": "string",
-                        "enum": ["senior_tpm", "agentic_ai_engineer", "first_tpm"],
+                        "enum": ["senior_tpm", "agentic_ai_engineer", "first_tpm",
+                                  "tpm_unconfirmed"],
                     },
                     "reason": {"type": "string"},
                 },
@@ -62,9 +63,15 @@ LANE_PROMPT_CONTEXT = {
         "match_rule": (
             "A listing is a genuine match only if it meets the criteria "
             "above: a full-time role where the hire would be establishing "
-            "the program management function, not joining an existing one."
+            "the program management function, not joining an existing one. "
+            "A clear senior technical program management role whose posting "
+            "says nothing either way about whether the function already "
+            "exists is also a match, categorised \"tpm_unconfirmed\" - see "
+            "\"A second verdict: unconfirmed\" in the criteria above. "
+            "Contrary evidence is still no_match: unconfirmed is for absent "
+            "evidence, never for evidence pointing the other way."
         ),
-        "role_category_hint": '("first_tpm")',
+        "role_category_hint": '("first_tpm" or "tpm_unconfirmed")',
     },
 }
 

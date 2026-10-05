@@ -127,6 +127,39 @@ other).
   after a successful publish. This pipeline lives on a laptop that can miss
   weeks; an age-in-days rule would delete the last real runs exactly when you
   still need them. The sweep never propagates its own errors.
+- **`prefilter` has three tiers, and tier 3 is title-only.** Tiers 1 and 2
+  both require foundation vocabulary, which measured against the eval corpus
+  dropped 12 of the 14 listings whose *title* said "Technical Program
+  Manager" or "TPM" — openings at Chainguard, Deepgram, Cribl, Together AI,
+  Sardine, Anyscale and Baseten, i.e. this lane's exact target profile,
+  invisible because of how the ad was worded rather than what the job was.
+  The two that survived, Supabase and Baseten, are the only first_tpm matches
+  ever published, and both ads happened to say "first" or "Founding"; most
+  don't. Tier 3 passes a role term in the title regardless of body evidence,
+  because whether the role is *actually* foundational is a judgment about
+  evidence that belongs to `classify` and `ROLE_CRITERIA_FIRST_TPM.md` — the
+  stage's own docstring says "loose, classify confirms", and a gate dropping
+  12 of 14 on-profile titles was not loose. It costs about +5 candidates per
+  run. Title matching is only affordable because `ROLE_TERM` is narrow:
+  "Recruiting Operations Program Manager" and "Capacity Manager, Programs"
+  don't qualify, and the word-boundary `\btpm\b` keeps Trusted Platform
+  Module out. `prefilter` reports `title_only` in the manifest so admissions
+  on title alone stay countable.
+- **`tpm_unconfirmed` is for absent evidence, never contrary evidence.** The
+  first_tpm lane has two categories: `first_tpm` still requires foundation
+  evidence in the posting text, and `tpm_unconfirmed` is a clear senior TPM
+  role at a target-profile company whose ad says nothing either way. Anything
+  in the criteria's "Not a match" list — an existing TPM org, non-technical
+  program management, a Product Manager req, junior scope, Trusted Platform
+  Module — is still `no_match`. A posting saying "join our team of TPMs" has
+  *answered* the question and is a rejection, not an unconfirmed. It renders
+  in its own digest section, because mixing unconfirmed listings in with
+  evidenced ones would weaken the evidenced section's claim without telling
+  the reader it had changed. The scoring guide also forbids penalising an
+  unconfirmed listing for the missing evidence that defines its tier: double
+  counting it would push every one under `SCORE_FLOOR` into "Rejected on
+  scoring" — a different claim entirely, the pipeline disagreeing with
+  itself — and quietly empty the section.
 - **Word-boundary match on `\btpm\b`** in `prefilter.py` (and `\bml\b` in
   `company_signals.py`) — the first_tpm lane sources heavily from
   infra/security companies where "TPM" means Trusted Platform Module.

@@ -115,6 +115,27 @@ class RenderMarkdownTest(unittest.TestCase):
         # The rejected section must come after the real matches, not mix in.
         self.assertGreater(md.index("Disagreement"), md.index("Real match"))
 
+    def test_unconfirmed_tpm_matches_render_in_their_own_section(self):
+        """Mixed in with evidenced matches, an unconfirmed listing would
+        weaken the evidenced section's claim without telling the reader it
+        had changed. The separation is the point of the tier."""
+        md = digest._render_markdown(RUN_DATE, 10, [
+            fixtures.scored("u1", 75, "first_tpm", title="Founding TPM"),
+            fixtures.scored("u2", 68, "tpm_unconfirmed", title="Senior TPM"),
+        ], [], active_lanes=[lanes.FIRST_TPM])
+        evidenced = md.split("### TPM role")[0]
+        self.assertIn("Founding TPM", evidenced)
+        self.assertNotIn("Senior TPM", evidenced)
+        self.assertIn("foundation status unstated", md)
+
+    def test_the_unconfirmed_section_says_so_when_empty(self):
+        """Same rule as every other category: a silent missing section reads
+        as a rendering bug."""
+        md = digest._render_markdown(RUN_DATE, 10, [], [],
+                                      active_lanes=[lanes.FIRST_TPM])
+        self.assertIn("### TPM role — foundation status unstated", md)
+        self.assertEqual(md.count("No matches this week."), 2)
+
     def test_a_paused_category_renders_no_heading_at_all(self):
         """Not even "No matches this week." - a paused role has not been
         looked for, and saying nothing was found would be a false claim."""
