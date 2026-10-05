@@ -153,6 +153,14 @@ for data that never existed. Company size is now an observation taken from the
 posting, not a scored column. See
 [`docs/first-tpm-lane.md`](./docs/first-tpm-lane.md) for how the list is built.
 
+To find companies the list is missing, `python3 scripts/discover_companies.py`
+mines the HN "Who is hiring" comments the pipeline has already fetched for
+links to their own Ashby, Greenhouse, Lever and Workable boards — the board
+token is in the URL, which is the part that's otherwise guesswork. It makes no
+network calls and never touches `companies.csv`: it writes a review queue to
+`data/company_candidates.csv` (gitignored, like the list itself), and rows get
+moved across by hand.
+
 It's hand-maintained and **gitignored**, along with the `signals/` watchlist
 `company_signals` writes and `data/known_good.csv` — these name specific
 companies, and that's not something this repo publishes. A fresh clone

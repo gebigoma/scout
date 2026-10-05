@@ -102,6 +102,12 @@ def companies_csv_path() -> Path:
     return PROJECT_DIR / "data" / "companies.csv"
 
 
+def company_candidates_path() -> Path:
+    """Review queue written by scripts/discover_companies.py. Private for the
+    same reason companies.csv is: it names companies."""
+    return PROJECT_DIR / "data" / "company_candidates.csv"
+
+
 def prompts_dir() -> Path:
     return Path(__file__).resolve().parent / "prompts"
 
