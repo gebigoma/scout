@@ -15,3 +15,7 @@ notes/
 # Third-party job-posting text captured for the first_tpm eval corpus (spec
 # 01) - not this repo's to publish, and never pruned by retention.sweep.
 data/corpus/
+# Local run-health viewer (scripts/viewer.py). Rendered from data/runs/
+# manifests, which can carry private company names (fetch_ats.failed), so the
+# output is as private as data/runs/ itself and is never published.
+viewer/
