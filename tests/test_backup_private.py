@@ -145,7 +145,7 @@ class VerificationPassesOnFullRunTest(BackupPrivateTestCase):
     def _seed_source(self):
         data = self.fixture_root / "data"
         data.mkdir(exist_ok=True)
-        (data / "companies.csv").write_text("name,ats,token,headcount,source\na,b,c,,d\n")
+        (data / "companies.csv").write_text("name,ats,token,source\na,b,c,d\n")
         (data / "known_good.csv").write_text("role,company,url,missed_at\nx,y,z,prefilter\n")
 
     def test_an_empty_source_csv_passes_verification_and_prunes(self):

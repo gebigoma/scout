@@ -146,8 +146,11 @@ SCOUT_LANES=first_tpm python3 scripts/run_pipeline.py
 ```
 
 `data/companies.csv` drives the first_tpm lane's fetch: one row per portfolio
-company, columns `name,ats,token,headcount,source`. An empty `headcount` means
-unknown, not zero — never guess it. See
+company, columns `name,ats,token,source`. A `headcount` column was part of this
+schema until 2026-10-05 and was dropped — it was populated for 0 of 104 rows
+while the fit guide lowered the score for a missing value, so every match paid
+for data that never existed. Company size is now an observation taken from the
+posting, not a scored column. See
 [`docs/first-tpm-lane.md`](./docs/first-tpm-lane.md) for how the list is built.
 
 It's hand-maintained and **gitignored**, along with the `signals/` watchlist

@@ -10,13 +10,13 @@ from . import fixtures
 from .support import RUN_DATE, PipelineTestCase
 
 GREENHOUSE_CO = {"name": "Acme Robotics", "ats": "greenhouse",
-                 "token": "acmerobotics", "headcount": 85, "source": "lightspeed"}
+                 "token": "acmerobotics", "source": "lightspeed"}
 ASHBY_CO = {"name": "Bounce Systems", "ats": "ashby",
-           "token": "bouncesystems", "headcount": None, "source": "bessemer"}
+           "token": "bouncesystems", "source": "bessemer"}
 LEVER_CO = {"name": "Cavil Data", "ats": "lever",
-           "token": "cavildata", "headcount": 140, "source": "accel"}
+           "token": "cavildata", "source": "accel"}
 WORKABLE_CO = {"name": "Dunlin Labs", "ats": "workable",
-               "token": "dunlinlabs", "headcount": 70, "source": "angel"}
+               "token": "dunlinlabs", "source": "angel"}
 
 
 class SourceParserTest(unittest.TestCase):

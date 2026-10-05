@@ -332,7 +332,6 @@ def _normalize_ats(companies_results: dict) -> list:
                 "match_text": clean,
                 "tags": [],
                 "lane": "first_tpm",
-                "headcount": company.get("headcount"),
                 **_ats_location(company["ats"], job),
             })
     return result

@@ -172,10 +172,10 @@ def listing(url, **overrides):
 
 # --- first-TPM lane fixtures -------------------------------------------
 
-COMPANIES_CSV_SAMPLE = """name,ats,token,headcount,source
-Acme Robotics,greenhouse,acmerobotics,85,lightspeed
-Bounce Systems,ashby,bouncesystems,,bessemer
-Cavil Data,lever,cavildata,140,accel
+COMPANIES_CSV_SAMPLE = """name,ats,token,source
+Acme Robotics,greenhouse,acmerobotics,lightspeed
+Bounce Systems,ashby,bouncesystems,bessemer
+Cavil Data,lever,cavildata,accel
 """
 
 # Greenhouse's `?content=true` flag is load-bearing - without it there is no
@@ -264,7 +264,6 @@ def ats_listing(url, **overrides):
                       "program management function from scratch.",
         "tags": [],
         "lane": "first_tpm",
-        "headcount": 85,
         "location_text": "Remote (US)",
         "location_country_code": "US",
     }

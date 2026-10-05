@@ -237,7 +237,6 @@ class NormalizeAtsTest(unittest.TestCase):
         self.assertEqual(listing["company"], "Acme Robotics")
         self.assertEqual(listing["url"], fixtures.GREENHOUSE_JOB["absolute_url"])
         self.assertEqual(listing["lane"], "first_tpm")
-        self.assertEqual(listing["headcount"], 85)
         self.assertIn("first TPM hire", listing["snippet"])
         # first_published, not updated_at - the two differ by years in the
         # fixture specifically to catch a regression back to the wrong field.
@@ -330,10 +329,12 @@ class NormalizeAtsTest(unittest.TestCase):
         }
         self.assertEqual(normalize._normalize_ats(results), [])
 
-    def test_missing_headcount_is_carried_through_as_none(self):
+    def test_headcount_is_not_carried_onto_listings(self):
+        """Dropped from companies.csv 2026-10-05 - it was never populated,
+        and the fit guide lowered the score for every missing value."""
         listing, = normalize._normalize_ats(
-            self._companies_results("greenhouse", fixtures.GREENHOUSE_JOB, headcount=None))
-        self.assertIsNone(listing["headcount"])
+            self._companies_results("greenhouse", fixtures.GREENHOUSE_JOB))
+        self.assertNotIn("headcount", listing)
 
     def test_greenhouse_location_name_is_extracted_as_free_text(self):
         job = {**fixtures.GREENHOUSE_JOB, "location": {"name": "Australia (Remote)"}}

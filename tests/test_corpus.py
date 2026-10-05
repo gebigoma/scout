@@ -59,7 +59,7 @@ class BuildRowsTest(PipelineTestCase):
         self.assertEqual(row["company"], "Acme Robotics")
         self.assertEqual(row["location_text"], "Remote (US)")
         self.assertEqual(row["location_country_code"], "US")
-        self.assertEqual(row["headcount"], 85)
+        self.assertNotIn("headcount", row)
         self.assertEqual(row["description"], listing["match_text"])
         self.assertEqual(row["source"], "greenhouse:acmerobotics")
         self.assertEqual(row["ats"], "greenhouse")
