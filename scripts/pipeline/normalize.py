@@ -319,7 +319,16 @@ def _normalize_ats(companies_results: dict) -> list:
             elif ats == "lever":
                 title, url = job.get("text", ""), job.get("hostedUrl", "")
                 posted = job.get("createdAt", "")
-                desc = job.get("descriptionPlain", job.get("description", ""))
+                # Lever splits a posting three ways: `descriptionPlain` is
+                # only the opening, the responsibilities and requirements
+                # arrive in `lists` as {text, content-HTML}, and the closing
+                # in `additionalPlain`. Reading the first alone missed ~32% of
+                # Lever text (issue #44) - the #13 shape again.
+                parts = [job.get("descriptionPlain", job.get("description", ""))]
+                for section in job.get("lists") or []:
+                    parts += [section.get("text", ""), section.get("content", "")]
+                parts.append(job.get("additionalPlain", job.get("additional", "")))
+                desc = " ".join(x for x in parts if x)
             else:
                 # fetch_ats never marks an unsupported ats as a success, so
                 # this is unreachable - but lever was this branch's silent

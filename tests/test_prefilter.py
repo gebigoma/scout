@@ -382,14 +382,28 @@ class RealPayloadTest(unittest.TestCase):
         self.assertFalse(result["us_eligible"])
         self.assertFalse(result["role_term"])
 
-    @unittest.expectedFailure
     def test_lever_list_sections_reach_match_text(self):
-        """Issue #44. normalize reads only `descriptionPlain`, which in
-        Lever's payload is the opening paragraph; the responsibilities and
-        requirements arrive separately in `lists`. In this posting that is
-        the whole role. Remove the decorator when #44 is fixed."""
+        """Issue #44. Lever's `descriptionPlain` is only the opening
+        paragraph; the responsibilities and requirements arrive separately in
+        `lists`. In this posting that is the whole role."""
         listing = _normalized("lever", "no_role_term")
         self.assertIn("Check eligibility and benefits", listing["match_text"])
+
+    def test_evidence_only_in_a_lever_list_section_passes(self):
+        """Issue #44's done-when: foundation evidence that sits in a `lists`
+        section, the place an ad tends to say "you will establish...", must
+        reach prefilter. The real payload with one list item swapped."""
+        entry = fixtures.payload("lever", "no_role_term")
+        job = entry["jobs"][0]
+        job["country"] = ""
+        job["lists"][1]["content"] = (
+            "<li>You will establish the program management function for the "
+            "operations team.</li>")
+        self.assertNotIn("program management", job["descriptionPlain"].lower())
+        listing, = normalize._normalize_ats({"x": entry})
+        result = prefilter.evaluate(listing)
+        self.assertTrue(result["tier1"])
+        self.assertTrue(result["passes"])
 
 
 class RealPayloadRunTest(PipelineTestCase):

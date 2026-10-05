@@ -236,6 +236,14 @@ other).
   `country_code`, but only a single unambiguous code is treated as
   authoritative: a posting open in several countries would otherwise be
   dropped on one of its locations.
+- **Lever was the same bug, already shipped (issue #44).** Lever splits a
+  posting three ways: `descriptionPlain` is only the opening, the
+  responsibilities and requirements sections arrive in `lists`, and the
+  closing is in `additionalPlain`. Until 2026-10-05 `normalize` read the
+  first alone, which missed ~32% of Lever text. Across the retained runs that
+  happened not to change a single prefilter result, but only because the
+  lane has two Lever companies. It now reads all three, opening first since
+  the opening is the snippet's head.
 - **`ats=ashby_portfolio` is a VC's board: one fetch, many companies.** A
   portfolio board is a single Ashby board carrying jobs for a whole portfolio
   — Pear VC's held 99 jobs across 44 companies on 2026-10-05, each naming its
