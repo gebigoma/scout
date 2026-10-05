@@ -243,6 +243,35 @@ other).
   `load_companies` ignores unrecognised columns rather than rejecting them, so
   a hand-edited copy still carrying `headcount` keeps loading — the file is
   edited by a person, not migrated.
+- **`scripts/discover_companies.py` mines `companies.csv` candidates from HN,
+  offline, into a review queue.** The token is the hard part of adding a
+  company ("board tokens are guesswork", above), and a Who-is-hiring comment
+  linking its own Ashby/Greenhouse/Lever/Workable board carries the token *in
+  the URL*. Those links are the most common hosts in the thread, so the
+  script reads `data/runs/*/fetch.json` — data the pipeline already fetched —
+  and writes `data/company_candidates.csv`. Over the eight retained runs that
+  was 85 candidates not already listed, against a 104-row list. Four things
+  about it are deliberate. (1) **It never writes `companies.csv`.** That file
+  is hand-maintained by design and these tokens come from free text; the queue
+  is regenerated wholesale, so a reviewed row is *moved* into `companies.csv`,
+  not edited in place. (2) **It makes no network calls**, which is what lets it
+  be checked against every retained run before its output is trusted. Things
+  that would need the network are counted, not followed — `grnh.se` short
+  links hide the token behind a redirect (77 distinct in the retained runs),
+  and the unresolved count is printed so the gap is visible. (3) **HN escapes
+  slashes as `&#x2F;`**, so it matches *after* `normalize._strip_html`; the
+  first version of this idea searched raw text and found zero tokens in 717
+  comments holding 339 ATS links. (4) **Boards that hire on someone else's
+  behalf are flagged, not dropped.** `fetch_ats` labels every job on a board
+  with the row's company name, so adding a VC's portfolio board labels a whole
+  portfolio as one company — the real case was a "Phaselaw" comment linking
+  `jobs.ashbyhq.com/Pear-VC`. Same for a token already listed under a
+  *different* ATS, which means that company's existing row may be 404ing
+  every week. EU-hosted boards are left out because `fetch_ats` calls the US
+  API hosts. Other discovery sources (EDGAR Form D, resolved short links) were
+  considered and kept out of this script — they yield names, not tokens, and
+  need the network — but the queue's leading columns are `companies.csv`'s
+  own, so they can write to the same file later.
 - **`data/known_good.csv` is the hand-kept recall log.** The pipeline can
   measure precision from what `digest` publishes, but it has no record of roles
   it never saw — recall is only observable from outside, so it gets tracked by
@@ -255,11 +284,12 @@ other).
   angel-funded company appears on none of them and never enters the universe at
   all; and `fetch_ats` covers only Greenhouse, Ashby and Lever, so a company on
   Workable (or any fourth ATS) 404s and is skipped as "not on this ATS".
-- **`signals/`, `data/companies.csv` and `data/known_good.csv` are private**,
-  gitignored *and* in `hygiene.NEVER_COMMIT` so `git add -f` can't sneak them
-  back. This is a public repo and each names specific companies — being watched,
-  or being applied to. The stages still run and still write their files locally;
-  only publishing is off. A fresh clone has none of the three, which is why
+- **`signals/`, `data/companies.csv`, `data/known_good.csv` and
+  `data/company_candidates.csv` are private**, gitignored *and* in
+  `hygiene.NEVER_COMMIT` so `git add -f` can't sneak them back. This is a
+  public repo and each names specific companies — being watched, being applied
+  to, or being considered. The stages still run and still write their files
+  locally; only publishing is off. A fresh clone has none of them, which is why
   nothing in the suite reads the real ones. Being hand-maintained rather than
   generated is *not* the test for whether something can be committed: the test
   is whether it names companies. `data/companies.example.csv` and
@@ -382,7 +412,7 @@ The scheduled job commits from this same working copy, so leaving the repo off
 Hygiene rules live in `scripts/hygiene.py` alone, shared by `.githooks/` and CI
 so the two can't drift: no files over 2MB, no generated or private output
 (`data/runs/`, `logs/`, `data/raw/`, `signals/`, `data/companies.csv`,
-`data/known_good.csv`), no
+`data/known_good.csv`, `data/company_candidates.csv`), no
 conflict markers, branch names must match
 `(feat|fix|chore|docs|test|refactor|ci)/slug`, and only digest commits should
 land on `main` directly.
