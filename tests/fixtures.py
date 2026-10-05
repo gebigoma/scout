@@ -6,7 +6,21 @@ reproduced here instead: WWR's "Headquarters/About Us" preamble that buries
 the employment terms hundreds of characters down, RemoteOK's legal-notice
 first element and its "mention the word GEM" applicant instruction, and
 HN's pipe-delimited "Company | Role | Location | Type" comment convention.
+
+The records below are hand-written. Whole captured ATS payloads, redacted,
+live in `tests/payloads/` and are loaded with `payload()`.
 """
+import json
+import os
+
+PAYLOAD_DIR = os.path.join(os.path.dirname(__file__), "payloads")
+
+
+def payload(ats, name):
+    """One redacted real `fetch_ats` entry - `{status, company, jobs}` - as
+    `normalize._normalize_ats` reads it. See tests/payloads/README.md."""
+    with open(os.path.join(PAYLOAD_DIR, ats, name + ".json"), encoding="utf-8") as f:
+        return json.load(f)
 
 # RemoteOK's API returns a legal notice as element 0, with no "position" key.
 REMOTEOK_LEGAL_NOTICE = {

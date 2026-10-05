@@ -1,0 +1,64 @@
+{
+ "status": "success",
+ "company": {
+  "name": "Initech",
+  "ats": "greenhouse",
+  "token": "initech"
+ },
+ "jobs": [
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/initech/jobs/9000000003",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": false
+    }
+   ],
+   "internal_job_id": 9000000001,
+   "location": {
+    "name": "United States - Remote"
+   },
+   "metadata": [
+    {
+     "id": 90000000002,
+     "name": "Careers Page Department",
+     "value": "Product Management",
+     "value_type": "single_select"
+    }
+   ],
+   "id": 9000000003,
+   "updated_at": "2026-09-29T12:17:30-04:00",
+   "requisition_id": "REQ-0001",
+   "title": "Senior Technical Program Manager ",
+   "company_name": "Initech",
+   "first_published": "2026-08-27T16:16:42-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Initech makes software supply chain security tooling for engineering teams. We harden the open source components engineers rely on, so organizations can ship faster, stay compliant and carry less risk. Customers range from growing startups to large regulated enterprises, and we are backed by several established investors.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;&lt;strong&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif;&quot;&gt;US, East Coast preferred&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;\n&lt;h2&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;About the role:&lt;/span&gt;&lt;/h2&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;Our security organization balances long-range, proactive projects against urgent, reactive work. As the company has grown, keeping that balance, anticipating how changing priorities ripple outward, and showing leadership where security risk stands have all become more important and harder to do.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;We want a Senior Technical Program Manager who can make this work structured and visible.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;You will work with product security, infrastructure security and governance, across the whole security organization. You will sit close to those teams day to day while coordinating priorities, dependencies and execution across all of security.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;Your reach will go beyond security. Security touches nearly every part of Initech, from engineering and product to legal, finance and sales, so you will create the systems and relationships that let those groups work together.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;The role is senior and strategic, and it will grow. There is no playbook waiting for you; you will help write it. You will establish the processes, reporting and ways of prioritizing that make security clearer and more effective, and later you will extend that work to company-wide programs.&lt;/span&gt;&lt;/p&gt;\n&lt;h2&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;What you will do:&lt;/span&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Run the workflow, tracking and dependency management for the three security teams, so it is obvious what is on track, what is at risk and what a change will affect downstream.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Build and maintain dashboards that show leadership, over time, how risk, exposure and the health of security programs are trending.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Work day to day with your main security team while helping the other two as capacity allows.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Make and explain prioritization calls when demand exceeds capacity, offering alternatives and helping stakeholders see the tradeoffs instead of simply saying no.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Design light processes that make the security teams more effective without slowing engineers down.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Agree with product, engineering and partner teams on how they work with security.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Over time, help shape how Initech plans, prioritizes and executes across functions.&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;What we are looking for:&lt;/span&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Five or more years of technical program management, program management or operations experience.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Experience supporting many stakeholders in a wide-ranging operations or program role that spans functions, rather than one isolated team.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Security experience helps but is not required; working well in a horizontal role with many stakeholders matters more.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;A record of creating processes and using sound judgment in ambiguous settings, instead of reaching for a standard framework.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Strong stakeholder management, acting as a consultative partner across functions.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Experience balancing competing priorities and explaining hard tradeoffs clearly.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Comfort in a fast-moving, scaling company where processes are still taking shape.&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Why this role:&lt;/span&gt;&lt;/h2&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;Security work here does not follow a schedule. Proactive projects and urgent needs compete for the same time, and this role is here to put structure around that tension so the security organization can choose deliberately where to focus. Leadership also needs a clearer, steadier view of security posture and risk than we can provide today. You will create that reporting and make it last. Because security touches the whole business, you will see how the whole company runs, and over time you can apply what you learn to larger, company-wide programs.&lt;/span&gt;&lt;/p&gt;\n&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;title&quot;&gt;Base Salary Range&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$150,000 — $180,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h3&gt;About Us&lt;/h3&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;We care about our customers, act with intent, keep a sense of humor about the work, and assume good intentions in each other. We share context openly so people can make well-informed decisions.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;Benefits include:&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Remote-first work with regular team gatherings and a home office stipend.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Stock options at hire and on promotion.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Health coverage for you and your dependents.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Flexible time off.&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;&lt;span style=&quot;font-family: arial, helvetica, sans-serif; font-size: 12pt;&quot;&gt;Paid parental leave that can be taken at once or during your child&amp;#39;s first year.&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;Apply even if you do not meet every requirement. We want people with different backgrounds and perspectives.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;Initech is an equal opportunity employer. We do not discriminate based on any legally protected characteristic, including race, religion, color, sex, sexual orientation, gender identity or expression, age, national origin, veteran or disability status, genetic information or political views. Applicants with a criminal record are considered in line with applicable law.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;By applying, you acknowledge that Initech will process your personal data as described in its &lt;span style=&quot;text-decoration: underline;&quot;&gt;&lt;a href=&quot;https://example.com/link&quot;&gt;Candidate Privacy Notice&lt;/a&gt;&lt;/span&gt;.&lt;/p&gt;\n&lt;p&gt;©2026 Initech. All Rights Reserved.&lt;/p&gt;&lt;/div&gt;",
+   "departments": [
+    {
+     "id": 9000000004,
+     "name": "Product Management",
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "offices": [
+    {
+     "id": 9000000005,
+     "name": "Remote - US",
+     "location": null,
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": null
+  }
+ ]
+}

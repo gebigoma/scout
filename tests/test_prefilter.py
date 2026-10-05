@@ -1,6 +1,9 @@
+import html
+import os
+import re
 import unittest
 
-from pipeline import manifest, prefilter
+from pipeline import manifest, normalize, prefilter
 
 from . import fixtures
 from .support import RUN_DATE, PipelineTestCase
@@ -240,6 +243,176 @@ class PrefilterRunTest(PipelineTestCase):
         self.assertEqual(len(checkpoint["listings"]), 1)
         self.assertNotIn("match_text", checkpoint["listings"][0])
         self.assertEqual(checkpoint["listings"][0]["snippet"], "head")
+
+
+def _normalized(ats, name):
+    listing, = normalize._normalize_ats({name: fixtures.payload(ats, name)})
+    return listing
+
+
+def _on_snippet_only(listing):
+    """What prefilter would decide if it matched the snippet, as it did
+    before issue #13 was fixed."""
+    return prefilter.evaluate({**listing, "match_text": ""})
+
+
+class RealPayloadTest(unittest.TestCase):
+    """Raw ATS payloads through normalize and then prefilter.
+
+    The synthetic tests above hand `evaluate` a finished listing, which is
+    how they passed on every CI run while the stage rejected 100% of real
+    listings (issues #13, #14): the bug lived in what normalize hands
+    prefilter, and no synthetic listing goes through normalize. These start
+    from the payload instead: real postings from retained runs, with their
+    structure and markup kept and their prose rewritten for a public repo
+    (tests/payloads/README.md). Every outcome asserted here was checked to be
+    the same on the unredacted original."""
+
+    def test_a_founding_tpm_ad_passes_on_an_exact_thesis_phrase(self):
+        result = prefilter.evaluate(_normalized("ashby", "founding_tpm"))
+        self.assertTrue(result["passes"])
+        self.assertTrue(result["tier1"])
+
+    def test_a_tpm_title_passes_when_its_evidence_is_out_of_proximity(self):
+        """The ad says "establish the processes" and "program management",
+        but more than 200 characters apart - the case tier 3 exists for."""
+        listing = _normalized("greenhouse", "title_only_tpm")
+        result = prefilter.evaluate(listing)
+        self.assertTrue(result["passes"])
+        self.assertTrue(result["tier3"])
+        self.assertFalse(result["tier1"] or result["tier2"])
+        # Greenhouse's `content` is entity-escaped HTML; none of it may
+        # survive into the text the matchers read.
+        self.assertNotIn("&lt;", listing["match_text"])
+        self.assertNotIn("<", listing["match_text"])
+
+    def test_evidence_past_the_snippet_cap_is_still_matched(self):
+        """The direction issue #13 failed in. The only role term sits ~3,500
+        characters in, and the 1,200-character snippet fills with salvaged
+        foundation-vocabulary sentences long before reaching it - matching
+        the snippet never sees the role at all."""
+        listing = _normalized("greenhouse", "evidence_past_snippet_cap")
+        self.assertFalse(_on_snippet_only(listing)["role_term"],
+                         "fixture no longer puts the role term past the snippet")
+        result = prefilter.evaluate(listing)
+        self.assertTrue(result["passes"])
+        self.assertTrue(result["tier2"])
+
+    def test_a_stitched_snippet_cannot_fake_proximity(self):
+        """The other direction. The ad says "This job is not program
+        management", ~370 characters from any foundation term - but the snippet
+        stitches salvaged sentences together, so there the two sit side by
+        side and tier 2 would pass a listing that disclaims the role."""
+        listing = _normalized("greenhouse", "stitched_false_adjacency")
+        self.assertTrue(_on_snippet_only(listing)["tier2"],
+                        "fixture no longer exercises the stitched seam")
+        result = prefilter.evaluate(listing)
+        self.assertFalse(result["passes"])
+        self.assertTrue(result["near_miss"])
+
+    def test_a_program_manager_title_that_is_not_a_tpm_is_a_near_miss(self):
+        """"Recruiting Operations Program Manager" - a real title, and the
+        reason ROLE_TERM is narrow enough for tier 3 to afford title matching."""
+        result = prefilter.evaluate(_normalized("ashby", "program_manager_not_tpm"))
+        self.assertFalse(result["passes"])
+        self.assertFalse(result["tier3"])
+        self.assertTrue(result["near_miss"])
+
+    def test_a_tpm_at_a_non_us_office_is_dropped_despite_us_metadata(self):
+        """The posting NON_US_COUNTRIES' comment describes: `location.name`
+        "Australia (Remote)" alongside a custom metadata field saying "United
+        States (Remote)". Only `location.name` is read."""
+        result = prefilter.evaluate(_normalized("greenhouse", "non_us_tpm"))
+        self.assertTrue(result["role_fit"])
+        self.assertFalse(result["us_eligible"])
+        self.assertFalse(result["passes"])
+
+    def test_a_tpm_open_in_the_us_and_canada_is_dropped(self):
+        """Pins current behaviour, not a judgment that it's right. Ashby's
+        `secondaryLocations` lists "United States" and "Canada", normalize
+        joins them into `location_text`, and "Canada" alone fails the
+        country check - so a remote TPM role open to US candidates is
+        dropped. One real opening went this way on every run from 2026-09-14
+        to 2026-10-05. Issue #46 asks whether it should."""
+        listing = _normalized("ashby", "non_us_tpm")
+        self.assertIn("United States", listing["location_text"])
+        result = prefilter.evaluate(listing)
+        self.assertTrue(result["tier3"])
+        self.assertFalse(result["us_eligible"])
+
+    def test_a_lever_country_code_is_authoritative(self):
+        listing = _normalized("lever", "no_role_term")
+        self.assertEqual(listing["location_country_code"], "IN")
+        result = prefilter.evaluate(listing)
+        self.assertFalse(result["us_eligible"])
+        self.assertFalse(result["role_term"])
+
+    @unittest.expectedFailure
+    def test_lever_list_sections_reach_match_text(self):
+        """Issue #44. normalize reads only `descriptionPlain`, which in
+        Lever's payload is the opening paragraph; the responsibilities and
+        requirements arrive separately in `lists`. In this posting that is
+        the whole role. Remove the decorator when #44 is fixed."""
+        listing = _normalized("lever", "no_role_term")
+        self.assertIn("Check eligibility and benefits", listing["match_text"])
+
+
+class RealPayloadRunTest(PipelineTestCase):
+    def test_normalize_then_prefilter_over_every_payload(self):
+        """The two stages wired together as run_pipeline wires them, over
+        every captured payload at once - the seam issue #13 lived in."""
+        entries = {f"{ats}/{name}": fixtures.payload(ats, name)
+                   for ats, name in [
+                       ("ashby", "founding_tpm"),
+                       ("ashby", "non_us_tpm"),
+                       ("ashby", "program_manager_not_tpm"),
+                       ("greenhouse", "evidence_past_snippet_cap"),
+                       ("greenhouse", "non_us_tpm"),
+                       ("greenhouse", "stitched_false_adjacency"),
+                       ("greenhouse", "title_only_tpm"),
+                       ("lever", "no_role_term"),
+                   ]}
+        normalized = normalize.run(RUN_DATE, {"sources": {}}, {"companies": entries})
+        checkpoint = prefilter.run(RUN_DATE, normalized)
+
+        self.assertEqual(
+            sorted(l["title"] for l in checkpoint["listings"]),
+            ["Founding Technical Program Manager",
+             "Senior Manager, Public Sector Partners",
+             "Senior Technical Program Manager"])
+        for listing in checkpoint["listings"]:
+            self.assertNotIn("match_text", listing)
+
+        entry = manifest.load(RUN_DATE)["stages"]["prefilter"]
+        self.assertEqual(entry["first_tpm_seen"], 8)
+        self.assertEqual(entry["passed"], 3)
+        self.assertEqual(entry["title_only"], 1)
+        self.assertEqual(entry["near_misses"], 2)
+        self.assertEqual(entry["filtered_non_us"], 2)
+        self.assertEqual(entry["role_terms_seen"], 7)
+
+
+class PayloadFilesTest(unittest.TestCase):
+    """A guard on what gets committed, not on the pipeline. This repo is
+    public, so a payload added later must not carry a link back to the
+    company behind it. Company names can't be checked here - the watchlist
+    is private and absent in CI - so that part stays a review step."""
+
+    ALLOWED_HOSTS = ("jobs.ashbyhq.com", "job-boards.greenhouse.io",
+                     "jobs.lever.co", "example.com")
+
+    def test_every_link_is_an_ats_host_or_example_com(self):
+        url = re.compile(r"https?://([^/\s\"'<>\\)&]+)")
+        for root, _, files in os.walk(fixtures.PAYLOAD_DIR):
+            for fname in files:
+                if not fname.endswith(".json"):
+                    continue
+                with open(os.path.join(root, fname), encoding="utf-8") as f:
+                    # Greenhouse content is escaped twice over.
+                    text = html.unescape(html.unescape(f.read()))
+                for host in url.findall(text):
+                    with self.subTest(file=fname, host=host):
+                        self.assertIn(host, self.ALLOWED_HOSTS)
 
 
 if __name__ == "__main__":

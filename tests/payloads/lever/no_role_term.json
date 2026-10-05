@@ -1,0 +1,60 @@
+{
+ "status": "success",
+ "company": {
+  "name": "Tyrell",
+  "ats": "lever",
+  "token": "tyrell"
+ },
+ "jobs": [
+  {
+   "additional": "",
+   "additionalPlain": "",
+   "categories": {
+    "location": "Bengaluru",
+    "team": "Operation Team",
+    "allLocations": [
+     "Bengaluru"
+    ]
+   },
+   "createdAt": 1756401887949,
+   "descriptionPlain": "About Tyrell\n\nTyrell builds AI agents that take over patient access paperwork in US healthcare, beginning with benefits verification and prior authorization. Care teams spend less time on admin and patients start treatment sooner. You would join a small team at Tyrell working on healthcare automation.",
+   "description": "<div><b>About Tyrell</b></div><div><br></div><div>Tyrell builds AI agents that take over patient access paperwork in US healthcare, beginning with benefits verification and prior authorization. Care teams spend less time on admin and patients start treatment sooner. You would join a small team at Tyrell working on healthcare automation.</div>",
+   "id": "00000000-0000-4000-8000-000000000001",
+   "lists": [
+    {
+     "text": "About the Role",
+     "content": "<li>Tyrell is looking for a Benefits Verification Specialist who has spent one to four years checking eligibility and benefits for US health insurance. You will join our operations team and verify coverage for patients receiving specialty care in the US.</li><li>The role is full-time and based in our Bangalore office, with some overlap with US hours.</li>"
+    },
+    {
+     "text": "Key Responsibilities",
+     "content": "<li>Check eligibility and benefits with commercial payers and with government programs such as Medicare, Medicare Advantage and Medicaid.</li><li>Confirm deductibles, copays, coinsurance, network status, referral and prior authorization requirements, and code-specific benefits.</li><li>Reach payer representatives by phone or through payer portals.</li><li>Challenge payer responses when your experience says they are wrong.</li><li>Record findings accurately in internal systems.</li><li>Work with colleagues to fix missing or inconsistent data, and with engineering to improve our systems.</li><li>Finish verifications on time, accurately and within agreed SLAs.</li>"
+    },
+    {
+     "text": "Requirements",
+     "content": "<li>Two or more years of <b>US healthcare insurance verification</b> experience</li><li>Familiarity with&nbsp;<b>payer portals</b></li><li>Knowledge of&nbsp;<b>plan types</b>&nbsp;such as commercial, Medicare, Medicaid, HMO and PPO</li><li>Working knowledge of&nbsp;<b>CPT and HCPCS codes</b>&nbsp;and payer-specific benefit rules</li><li>Careful attention to detail and&nbsp;<b>accurate documentation</b></li><li>Fluent English,&nbsp;<b>written and spoken</b></li>"
+    },
+    {
+     "text": "Good to Have",
+     "content": "<li>Background in specialty pharmacy, oncology, infusion or behavioral health</li><li>Familiarity with EMRs, RCM software or AI automation tools</li>"
+    },
+    {
+     "text": "Why Tyrell",
+     "content": "<li>Work on hard problems in&nbsp;<b>healthcare automation</b></li><li>Own a lot, learn fast and get mentorship in a&nbsp;<b>startup</b></li><li>Sit next to the engineers building our&nbsp;<b>AI agents</b></li><li>Help improve&nbsp;<b>access to care</b>&nbsp;for US patients</li>"
+    },
+    {
+     "text": "Website",
+     "content": "<li><a href=\"https://example.com/\">https://example.com/</a></li>"
+    }
+   ],
+   "text": "Benefit Verification Specialist - AI Agents (Healthcare)",
+   "country": "IN",
+   "workplaceType": "onsite",
+   "opening": "<div><b>About Tyrell</b></div><div><br></div><div>Tyrell builds AI agents that take over patient access paperwork in US healthcare, beginning with benefits verification and prior authorization. Care teams spend less time on admin and patients start treatment sooner. You would join a small team at Tyrell working on healthcare automation.</div>",
+   "openingPlain": "About Tyrell\n\nTyrell builds AI agents that take over patient access paperwork in US healthcare, beginning with benefits verification and prior authorization. Care teams spend less time on admin and patients start treatment sooner. You would join a small team at Tyrell working on healthcare automation.",
+   "descriptionBody": "",
+   "descriptionBodyPlain": "",
+   "hostedUrl": "https://jobs.lever.co/tyrell/00000000-0000-4000-8000-000000000001",
+   "applyUrl": "https://jobs.lever.co/tyrell/00000000-0000-4000-8000-000000000001/apply"
+  }
+ ]
+}
